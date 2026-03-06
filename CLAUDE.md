@@ -187,10 +187,11 @@ Cast safely via `Number` for numeric values: `((Number) attr.getValue()).longVal
 
 ### Quick reference
 
-- **Entity type strings**: `"DEVICE"`, `"ASSET"`, `"CUSTOMER"`, `"TENANT"`, `"DASHBOARD"`, `"ALARM"`, `"USER"`, `"EDGE"`, `"ENTITY_VIEW"`, `"RULE_CHAIN"`
+- **Entity type strings**: `"DEVICE"`, `"ASSET"`, `"CUSTOMER"`, `"TENANT"`, `"DASHBOARD"`, `"ALARM"`, `"USER"`, `"EDGE"`, `"ENTITY_VIEW"`, `"RULE_CHAIN"`, `"ENTITY_GROUP"`, `"ROLE"`, `"GROUP_PERMISSION"`
 - **Attribute scopes**: `"SERVER_SCOPE"`, `"SHARED_SCOPE"`, `"CLIENT_SCOPE"`
 - **Pagination**: Most list methods take `(pageSize, page, ...)`. Page is 0-indexed.
 - **JSON body parameters**: Methods like `saveDeviceAttributes` take a `String body` — pass a JSON string.
 - **All IDs are strings**: The Java client methods accept and return String IDs.
 - **Error handling**: All methods throw `ApiException` with `getCode()` (HTTP status) and `getMessage()`.
 - **Lookup by name**: Use `getTenantDeviceByName`, `getTenantAssetByName`, `getTenantCustomer` — no need to paginate and filter.
+- **Entity group type strings** (PE/PaaS): `"DEVICE"`, `"ASSET"`, `"CUSTOMER"`, `"USER"`, `"DASHBOARD"`, `"ENTITY_VIEW"` — used with `getAllEntityGroupsByType` and `getEntityGroupByOwnerAndNameAndType`.
