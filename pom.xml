@@ -40,7 +40,7 @@
         <main.dir>${basedir}</main.dir>
         <thingsboard-client.version>4.4.0-SNAPSHOT</thingsboard-client.version>
         <!-- ThingsBoard edition: thingsboard-ce-client / thingsboard-pe-client / thingsboard-paas-client -->
-        <thingsboard-client.artifactId>thingsboard-paas-client</thingsboard-client.artifactId>
+        <thingsboard-client.artifactId>thingsboard-pe-client</thingsboard-client.artifactId>
     </properties>
 
     <dependencies>
