@@ -10,7 +10,7 @@ The user of this project is most likely **not a developer** — they understand 
 
 - **Business logic questions → always ask the user** (using `AskUserQuestion`). Never guess what the user wants. If you're unsure about the intended behavior, what data to use, which entities are involved, how something should be triggered, or what the output should look like — ask. Examples: "Should deleted devices decrement the count or reset it?", "Which asset should store this data?", "Should this run on every telemetry message or only when a threshold is exceeded?"
 
-- **Technical/implementation questions → figure it out yourself.** Do not ask the user about Java imports, Spring annotations, method signatures, build errors, or ThingsBoard client API usage. Use the API docs in `target/api-docs/`, the examples in `docs/tb-examples.md`, and `mvn compile` to resolve technical issues on your own.
+- **Technical/implementation questions → figure it out yourself.** Do not ask the user about Java imports, Spring annotations, method signatures, build errors, or ThingsBoard client API usage. Use the API docs in `target/api-docs/`, the examples in `target/api-docs/tb-examples.md`, and `mvn compile` to resolve technical issues on your own.
 
 ## How to Create a New Extension
 
@@ -141,7 +141,7 @@ Each `*Api.md` file (e.g., `DeviceControllerApi.md`, `TelemetryControllerApi.md`
 
 **Important:** When you need to call ThingsBoard APIs, always **read the full method table** at the top of the relevant `*ControllerApi.md` file (it's typically under 20 lines). Do not grep for guessed method names — the actual method names may differ from what you'd expect (e.g., `getTenantAssetByName` not `getAssetsByName`).
 
-For code examples showing how to call these methods, see `docs/tb-examples.md`.
+For code examples showing how to call these methods, see `target/api-docs/tb-examples.md`.
 
 ### Imports
 
