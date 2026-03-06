@@ -1,10 +1,6 @@
-# ThingsboardClient API Cheatsheet
+# ThingsboardClient Code Examples
 
-`ThingsboardClient` extends the generated `ThingsboardApi` class and provides 100+ methods covering all ThingsBoard REST APIs. This document lists the most commonly used methods with examples.
-
-All methods throw `ApiException` on failure.
-
-> **Note:** Method signatures (parameter counts) vary by edition (CE / PE / PaaS). The examples below match the PaaS edition. CE methods typically have fewer optional parameters. Always check `target/api-docs/` for your edition's exact signatures.
+> Method signatures (parameter counts) vary by edition (CE / PE / PaaS). The examples below match the PaaS edition. CE methods typically have fewer optional parameters. Always check `target/api-docs/` for your edition's exact signatures.
 
 ## Devices
 
@@ -124,20 +120,6 @@ tb.saveEntityAttributesV2("ASSET", assetId, "SERVER_SCOPE",
         "{\"deviceCount\": %d}".formatted(updated));
 ```
 
-### AttributeData.getValue() runtime types
-
-`AttributeData.getValue()` returns `Object`. The actual Java type depends on the stored value:
-
-| JSON value type | Java runtime type |
-|----------------|-------------------|
-| integer        | `Long`            |
-| decimal        | `Double`          |
-| string         | `String`          |
-| boolean        | `Boolean`         |
-| object / array | `Map` / `List`    |
-
-Cast safely via `Number` for numeric values: `((Number) attr.getValue()).longValue()`.
-
 ## Telemetry
 
 ```java
@@ -214,50 +196,3 @@ Dashboard dashboard = tb.getDashboardById(dashboardId);
 // List tenant dashboards (paginated)
 PageDataDashboardInfo page = tb.getTenantDashboards1(10, 0, null, null, null, null);
 ```
-
-## Accessor Chains (getting a String ID)
-
-All entity IDs follow the same pattern: `entity.getId().getId().toString()`.
-
-```java
-// From a Device
-Device device = tb.getTenantDeviceByName("My Device");
-String deviceId = device.getId().getId().toString();
-
-// From an Asset
-Asset asset = tb.getTenantAssetByName("Building A");
-String assetId = asset.getId().getId().toString();
-
-// From a Customer
-Customer customer = tb.getTenantCustomer("Acme Corp");
-String customerId = customer.getId().getId().toString();
-
-// From a paginated result
-PageDataDevice page = tb.getTenantDevices(10, 0, null, null, null, null);
-for (Device d : page.getData()) {
-    String id = d.getId().getId().toString();
-    String name = d.getName();
-}
-```
-
-### PageData fields
-
-All `PageData*` types share the same structure:
-
-```java
-PageDataDevice page = tb.getTenantDevices(100, 0, null, null, null, null);
-List<Device> items = page.getData();         // entities on this page
-int totalPages     = page.getTotalPages();   // total number of pages
-long totalElements = page.getTotalElements(); // total entity count
-boolean hasNext    = page.getHasNext();      // more pages available?
-```
-
-## Tips
-
-- **Entity type strings**: `"DEVICE"`, `"ASSET"`, `"CUSTOMER"`, `"TENANT"`, `"DASHBOARD"`, `"ALARM"`, `"USER"`, `"EDGE"`, `"ENTITY_VIEW"`, `"RULE_CHAIN"`
-- **Attribute scopes**: `"SERVER_SCOPE"`, `"SHARED_SCOPE"`, `"CLIENT_SCOPE"`
-- **Pagination**: Most list methods take `(pageSize, page, ...)`. Page is 0-indexed.
-- **JSON body parameters**: Methods like `saveDeviceAttributes` take a `String body` — pass a JSON string.
-- **All IDs are strings**: Even though ThingsBoard uses UUIDs internally, the Java client methods accept and return String IDs.
-- **Error handling**: All methods throw `ApiException`. The exception has `getCode()` (HTTP status) and `getMessage()`.
-- **Lookup by name**: Devices, assets, and customers can be looked up by name/title directly — no need to paginate and filter. Use `getTenantDeviceByName`, `getTenantAssetByName`, `getTenantCustomer`.

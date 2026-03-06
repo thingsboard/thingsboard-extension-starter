@@ -21,6 +21,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -55,8 +58,8 @@ public class UsageTrackingController {
         );
     }
 
-    private static java.util.List<String> iterableToList(java.util.Iterator<String> iterator) {
-        java.util.List<String> list = new java.util.ArrayList<>();
+    private static List<String> iterableToList(Iterator<String> iterator) {
+        List<String> list = new ArrayList<>();
         iterator.forEachRemaining(list::add);
         return list;
     }

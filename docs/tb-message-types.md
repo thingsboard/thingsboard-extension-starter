@@ -203,6 +203,7 @@ When a rule chain event fires, the REST API Call node sends `msg.getData()` as t
 
 ## Tips for Extension Authors
 
+- **Entity is already persisted when the rule chain fires.** By the time your extension receives the callback, the create/update/delete has already been committed to the database. This means you can safely query the ThingsBoard API for the current state (e.g., count devices, look up the created entity). For delete events, the entity will already be gone from the API.
 - **Metadata** is NOT included in `msg.getData()` by default. The REST API Call node sends only `msg.getData()` as the POST body. To include metadata fields, use the **Script** node before the REST API Call to merge metadata into the data.
 - **Entity ID format**: Always `{"entityType": "DEVICE", "id": "uuid-string"}`. Extract the UUID with `data.get("id").get("id").asText()`.
 - **Timestamps**: All timestamps are Unix epoch milliseconds (long).
