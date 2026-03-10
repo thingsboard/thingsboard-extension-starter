@@ -58,13 +58,13 @@ curl http://localhost:8090/api/health
 
 ```
 ThingsBoard Rule Chain                       Extension Service (port 8090)
-┌──────────────────────────┐                ┌──────────────────────────────┐
-│                          │                │                              │
-│ [Event] ──> [REST API    │   POST + JSON  │  @RestController endpoint    │
-│              Call node]  ─┼───────────────>│  (optionally uses            │
-│             + X-TB-API-Key│<───────────────┤   ThingsboardClient)        │
-│                          │   JSON response │                              │
-└──────────────────────────┘                └──────────────────────────────┘
+┌───────────────────────────┐                ┌──────────────────────────────┐
+│                           │                │                              │
+│ [Event] ──> [REST API     │   POST + JSON  │  @RestController endpoint    │
+│              Call node]   ┼───────────────>│  (optionally uses            │
+│             + X-TB-API-Key│<───────────────┤   ThingsboardClient)         │
+│                           │  JSON response │                              │
+└───────────────────────────┘                └──────────────────────────────┘
 ```
 
 **The API key travels with the request:**
