@@ -93,6 +93,9 @@
                             <goal>unpack</goal>
                         </goals>
                         <configuration>
+                            <overWriteIfNewer>false</overWriteIfNewer>
+                            <overWriteReleases>true</overWriteReleases>
+                            <overWriteSnapshots>true</overWriteSnapshots>
                             <artifactItems>
                                 <artifactItem>
                                     <groupId>org.thingsboard.client</groupId>
