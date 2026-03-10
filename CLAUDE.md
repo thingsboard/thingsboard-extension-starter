@@ -14,11 +14,13 @@ The user of this project is most likely **not a developer** — they understand 
 
 ## How to Create a New Extension
 
-When a user asks to create an extension, follow this process:
+**⚠️ MANDATORY — do NOT skip any of these steps. Do NOT jump ahead to writing code.**
 
-### 1. Understand the business need
+When a user asks to create an extension, you MUST follow every step below **in order**. Do not generate any code until steps 1 and 2 are fully complete.
 
-First, ask the user which ThingsBoard edition they're targeting. Use `AskUserQuestion` with these options:
+### 1. Ask the edition (BLOCKING — must happen first)
+
+Before doing ANYTHING else, ask the user which ThingsBoard edition they're targeting. Use `AskUserQuestion` with these options:
 
 - **CE** — Community Edition (open-source)
 - **PE** — Professional Edition (licensed, extra features)
@@ -32,18 +34,26 @@ Then update the `thingsboard-client.artifactId` property in `pom.xml`:
 | PE | `thingsboard-pe-client` |
 | PaaS | `thingsboard-paas-client` |
 
-This single property controls both the dependency and the API docs extraction. After changing it, **delete `target/api-docs/`** and run `./mvnw generate-resources` to unpack the correct edition's API docs into `target/api-docs/`.
+This single property controls both the dependency and the API docs extraction.
 
-**Important:** Do NOT read any files from `target/api-docs/` until AFTER you have set the correct edition, deleted `target/api-docs/`, and run `./mvnw generate-resources`. The folder may already exist with docs from a different edition. Always set the edition first, delete stale docs, regenerate, then read.
+### 2. Set up API docs (BLOCKING — must happen before writing any code)
 
-Then ask these questions (the user can skip by providing a detailed prompt upfront):
+After setting the edition in `pom.xml`, run `./mvnw generate-resources -q` — this unpacks API docs from the client JAR into `target/api-docs/`. It always overwrites, so it's safe to re-run after switching editions.
+
+**Do NOT read any files from `target/api-docs/` until AFTER running `./mvnw generate-resources`.** Always regenerate first, then read.
+
+**Do NOT skip this step.** Even if `target/api-docs/` already exists, it may contain docs for the wrong edition.
+
+### 3. Understand the business need
+
+Ask these questions (the user can skip by providing a detailed prompt upfront):
 
 - **What event triggers it?** (device created, telemetry posted, alarm created, etc.) — then **read `docs/tb-message-types.md`** to find the exact message type (e.g., `ENTITY_CREATED`) and understand the JSON payload structure. You will need both when generating code and when writing rule chain setup instructions.
 - **Does it need to call ThingsBoard APIs?** (save attributes, look up devices, create alarms, etc.) — see the API docs in `target/api-docs/` (run `./mvnw generate-resources` first if the folder doesn't exist). Each `*Api.md` file lists all available methods for that controller with parameters and return types.
 - **Does it need external services?** (Slack, email, database, HTTP API) — if so, add the dependency to `pom.xml`.
 - **What should it return?** The response JSON becomes the outgoing message in the rule chain (2xx = Success route, non-2xx = Failure route).
 
-### 2. Generate the code
+### 4. Generate the code
 
 Create a new `@RestController` class in `src/main/java/org/thingsboard/extension/`. Every Java file must start with this exact license header:
 
@@ -88,11 +98,11 @@ public class YourFeatureController {
 - If new dependencies are needed: add them to `pom.xml`.
 - If the input/output JSON is complex: create POJO classes next to the controller.
 
-### 3. Verify the code compiles
+### 5. Verify the code compiles
 
 Run `./mvnw compile -q` after generating the code. If it fails, read the error output and fix the issues before proceeding. This catches wrong imports, missing types, and API mismatches immediately.
 
-### 4. Provide rule chain setup instructions
+### 6. Provide rule chain setup instructions
 
 After generating the code, tell the user exactly how to wire it in ThingsBoard. Use the exact message type names from `docs/tb-message-types.md` (e.g., `ENTITY_CREATED`, `POST_TELEMETRY_REQUEST`) — do not guess or paraphrase them.
 
