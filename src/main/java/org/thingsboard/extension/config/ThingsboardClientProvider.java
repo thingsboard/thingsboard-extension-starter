@@ -15,6 +15,8 @@
  */
 package org.thingsboard.extension.config;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.MethodParameter;
@@ -28,7 +30,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.thingsboard.client.ApiException;
 import org.thingsboard.client.ThingsboardClient;
 
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Provides ThingsboardClient instances keyed by API key.
@@ -41,21 +43,28 @@ public class ThingsboardClientProvider implements HandlerMethodArgumentResolver 
     private static final String API_KEY_HEADER = "X-TB-API-Key";
 
     private final String thingsboardUrl;
-    private final ConcurrentHashMap<String, ThingsboardClient> clients = new ConcurrentHashMap<>();
+    private final Cache<String, ThingsboardClient> clients;
 
-    public ThingsboardClientProvider(@Value("${thingsboard.url}") String thingsboardUrl) {
+    public ThingsboardClientProvider(@Value("${thingsboard.url}") String thingsboardUrl,
+                                     @Value("${thingsboard.client.cache-ttl:60}") long cacheTtlMinutes,
+                                     @Value("${thingsboard.client.cache-max-size:100}") long cacheMaxSize) {
         this.thingsboardUrl = thingsboardUrl;
+        this.clients = Caffeine.newBuilder()
+                .expireAfterWrite(cacheTtlMinutes, TimeUnit.MINUTES)
+                .maximumSize(cacheMaxSize)
+                .build();
     }
 
     public ThingsboardClient getClient(String apiKey) {
-        return clients.computeIfAbsent(apiKey, key -> {
+        return clients.get(apiKey, key -> {
             try {
                 return ThingsboardClient.builder()
                         .url(thingsboardUrl)
                         .apiKey(key)
                         .build();
             } catch (ApiException e) {
-                throw new RuntimeException("Failed to create ThingsBoard client", e);
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                        "Cannot connect to ThingsBoard at " + thingsboardUrl + ": " + e.getMessage());
             }
         });
     }

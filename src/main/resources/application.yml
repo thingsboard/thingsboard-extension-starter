@@ -14,13 +14,22 @@
 # limitations under the License.
 #
 
+# Port the extension service listens on
 server:
   port: ${SERVER_PORT:8090}
 
 thingsboard:
+  # ThingsBoard base URL — where the platform is running
   url: ${THINGSBOARD_URL:http://localhost:8080}
+  client:
+    # How long to keep authenticated ThingsBoard clients in cache (minutes).
+    # After expiry, the next request with that API key creates a fresh client.
+    cache-ttl: ${TB_CLIENT_CACHE_TTL:60}
+    # Maximum number of cached ThingsBoard clients (one per unique API key)
+    cache-max-size: ${TB_CLIENT_CACHE_MAX_SIZE:100}
 
 spring:
   threads:
+    # Use virtual threads for better concurrency with blocking ThingsBoard API calls
     virtual:
       enabled: true

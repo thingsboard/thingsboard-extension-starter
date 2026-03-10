@@ -6,8 +6,11 @@ A starter project for building custom business logic on top of ThingsBoard. Your
 
 ## Prerequisites
 
-- Java 25+
-- Maven 3.9+
+One of:
+- **Docker** (recommended) — no Java or Maven needed
+- **Java 25+** — Maven is included via `./mvnw`
+
+And:
 - A running ThingsBoard instance (default: `http://localhost:8080`)
 - A ThingsBoard API key (see [Creating an API Key](#creating-an-api-key) below)
 
@@ -20,8 +23,11 @@ cd thingsboard-extension-starter
 # 2. (Optional) Set your ThingsBoard URL in src/main/resources/application.yml
 #    Default: http://localhost:8080
 
-# 3. Build and run
-mvn spring-boot:run
+# 3. Run with Java
+./run.sh
+
+# Or run with Docker
+./run-docker.sh
 
 # 4. Test it
 curl -X POST http://localhost:8090/api/usage/on-telemetry \
@@ -33,6 +39,19 @@ curl -X POST http://localhost:8090/api/usage/on-telemetry \
 Response:
 ```json
 {"status":"ok","keysReceived":2,"keys":["temperature","humidity"]}
+```
+
+### Alternative ways to run
+
+```bash
+# With Maven directly (requires Java 25)
+./mvnw spring-boot:run
+
+# With Docker Compose
+./mvnw package -DskipTests -q && docker compose up --build
+
+# Health check
+curl http://localhost:8090/api/health
 ```
 
 ## How It Works
@@ -122,7 +141,7 @@ public class BillingController {
 
 ### Testing
 
-1. Start the extension: `mvn spring-boot:run`
+1. Start the extension: `./mvnw spring-boot:run`
 2. Create a device in ThingsBoard (UI or API)
 3. Open the device → **Attributes** tab → **Server attributes**
 4. Verify `billingActive: true` and `billingStartedAt` appear
@@ -202,6 +221,13 @@ Claude will:
 4. Return any object — Spring serializes it to JSON
 5. Wire a REST API Call node in ThingsBoard pointing to your endpoint
 
+### Hot Reload (development)
+
+The project includes `spring-boot-devtools`. When running with `./mvnw spring-boot:run`:
+1. Make your code changes
+2. Run `./mvnw compile -q` in a separate terminal
+3. The service auto-restarts in ~2 seconds
+
 ## Configuration Reference
 
 ### `application.yml`
@@ -210,6 +236,18 @@ Claude will:
 |----------|---------|-------------|
 | `server.port` | `8090` | Port for the extension service |
 | `thingsboard.url` | `http://localhost:8080` | ThingsBoard base URL |
+| `thingsboard.client.cache-ttl` | `60` | Client cache TTL in minutes |
+| `thingsboard.client.cache-max-size` | `100` | Max cached ThingsBoard clients |
+
+Request/response logging is controlled by the logback level for `org.thingsboard.extension` (DEBUG = on, INFO = off). See `src/main/resources/logback.xml`.
+
+### Environment variables (Docker)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SERVER_PORT` | `8090` | Port mapping |
+| `THINGSBOARD_URL` | `http://host.docker.internal:8080` | ThingsBoard URL from container |
+| `JAVA_OPTS` | _(empty)_ | JVM options |
 
 ### Headers
 

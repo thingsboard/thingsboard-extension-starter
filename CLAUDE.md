@@ -10,7 +10,7 @@ The user of this project is most likely **not a developer** — they understand 
 
 - **Business logic questions → always ask the user** (using `AskUserQuestion`). Never guess what the user wants. If you're unsure about the intended behavior, what data to use, which entities are involved, how something should be triggered, or what the output should look like — ask. Examples: "Should deleted devices decrement the count or reset it?", "Which asset should store this data?", "Should this run on every telemetry message or only when a threshold is exceeded?"
 
-- **Technical/implementation questions → figure it out yourself.** Do not ask the user about Java imports, Spring annotations, method signatures, build errors, or ThingsBoard client API usage. Use the API docs in `target/api-docs/`, the examples in `target/api-docs/tb-examples.md`, and `mvn compile` to resolve technical issues on your own.
+- **Technical/implementation questions → figure it out yourself.** Do not ask the user about Java imports, Spring annotations, method signatures, build errors, or ThingsBoard client API usage. Use the API docs in `target/api-docs/`, the examples in `target/api-docs/tb-examples.md`, and `./mvnw compile` to resolve technical issues on your own.
 
 ## How to Create a New Extension
 
@@ -32,14 +32,14 @@ Then update the `thingsboard-client.artifactId` property in `pom.xml`:
 | PE | `thingsboard-pe-client` |
 | PaaS | `thingsboard-paas-client` |
 
-This single property controls both the dependency and the API docs extraction. After changing it, run `mvn generate-resources` to unpack the correct edition's API docs into `target/api-docs/`.
+This single property controls both the dependency and the API docs extraction. After changing it, **delete `target/api-docs/`** and run `./mvnw generate-resources` to unpack the correct edition's API docs into `target/api-docs/`.
 
-**Important:** Do NOT read any files from `target/api-docs/` until AFTER you have set the correct edition and run `mvn generate-resources`. The folder may already exist with docs from a different edition. Always set the edition first, regenerate, then read.
+**Important:** Do NOT read any files from `target/api-docs/` until AFTER you have set the correct edition, deleted `target/api-docs/`, and run `./mvnw generate-resources`. The folder may already exist with docs from a different edition. Always set the edition first, delete stale docs, regenerate, then read.
 
 Then ask these questions (the user can skip by providing a detailed prompt upfront):
 
 - **What event triggers it?** (device created, telemetry posted, alarm created, etc.) — then **read `docs/tb-message-types.md`** to find the exact message type (e.g., `ENTITY_CREATED`) and understand the JSON payload structure. You will need both when generating code and when writing rule chain setup instructions.
-- **Does it need to call ThingsBoard APIs?** (save attributes, look up devices, create alarms, etc.) — see the API docs in `target/api-docs/` (run `mvn generate-resources` first if the folder doesn't exist). Each `*Api.md` file lists all available methods for that controller with parameters and return types.
+- **Does it need to call ThingsBoard APIs?** (save attributes, look up devices, create alarms, etc.) — see the API docs in `target/api-docs/` (run `./mvnw generate-resources` first if the folder doesn't exist). Each `*Api.md` file lists all available methods for that controller with parameters and return types.
 - **Does it need external services?** (Slack, email, database, HTTP API) — if so, add the dependency to `pom.xml`.
 - **What should it return?** The response JSON becomes the outgoing message in the rule chain (2xx = Success route, non-2xx = Failure route).
 
@@ -90,7 +90,7 @@ public class YourFeatureController {
 
 ### 3. Verify the code compiles
 
-Run `mvn compile -q` after generating the code. If it fails, read the error output and fix the issues before proceeding. This catches wrong imports, missing types, and API mismatches immediately.
+Run `./mvnw compile -q` after generating the code. If it fails, read the error output and fix the issues before proceeding. This catches wrong imports, missing types, and API mismatches immediately.
 
 ### 4. Provide rule chain setup instructions
 
@@ -116,11 +116,14 @@ After generating the code, tell the user exactly how to wire it in ThingsBoard. 
 ### File structure
 ```
 src/main/java/org/thingsboard/extension/
-├── ExtensionApplication.java          # Spring Boot entry point
+├── ThingsboardExtensionApplication.java  # Spring Boot entry point
 ├── config/
-│   ├── ThingsboardClientProvider.java  # Client cache + argument resolver
-│   └── WebConfig.java                 # Registers the argument resolver
-└── examples/                          # Example controllers (can be deleted)
+│   ├── GlobalExceptionHandler.java       # Structured JSON error responses
+│   ├── HealthController.java             # GET /api/health
+│   ├── RequestLoggingFilter.java         # Request/response logging
+│   ├── ThingsboardClientProvider.java    # Client cache + argument resolver
+│   └── WebConfig.java                    # Registers the argument resolver
+└── examples/                             # Example controllers (can be deleted)
     ├── BillingController.java
     └── UsageTrackingController.java
 ```
@@ -135,7 +138,7 @@ New extensions go directly in `src/main/java/org/thingsboard/extension/` or in a
 
 ## API Reference
 
-The full ThingsboardClient API docs are packaged inside the client JAR and extracted to `target/api-docs/` during build. Run `mvn generate-resources` if the folder doesn't exist.
+The full ThingsboardClient API docs are packaged inside the client JAR and extracted to `target/api-docs/` during build. Run `./mvnw generate-resources` if the folder doesn't exist.
 
 Each `*Api.md` file (e.g., `DeviceControllerApi.md`, `TelemetryControllerApi.md`) lists all available methods with parameters and return types. **Always consult these docs when generating extension code** to ensure you use methods that actually exist.
 
@@ -195,3 +198,27 @@ Cast safely via `Number` for numeric values: `((Number) attr.getValue()).longVal
 - **Error handling**: All methods throw `ApiException` with `getCode()` (HTTP status) and `getMessage()`.
 - **Lookup by name**: Use `getTenantDeviceByName`, `getTenantAssetByName`, `getTenantCustomer` — no need to paginate and filter.
 - **Entity group type strings** (PE/PaaS): `"DEVICE"`, `"ASSET"`, `"CUSTOMER"`, `"USER"`, `"DASHBOARD"`, `"ENTITY_VIEW"` — used with `getAllEntityGroupsByType` and `getEntityGroupByOwnerAndNameAndType`.
+
+## How to Run
+
+Guide users to the simplest option:
+
+1. **`./run.sh`** — runs with Maven directly (requires Java 25).
+2. **`./run-docker.sh`** — builds the JAR, then runs with Docker Compose.
+
+Health check: `curl http://localhost:8090/api/health`
+
+## Restarting After Code Changes
+
+- **With devtools (default `./mvnw spring-boot:run`):** Run `./mvnw compile -q` in a separate terminal — the service auto-restarts in ~2 seconds.
+- **With Docker:** Run `./run-docker.sh`.
+
+## Post-Generation Checklist
+
+After generating extension code, verify:
+
+1. `./mvnw compile -q` succeeds
+2. Endpoint URL doesn't conflict with existing controllers (check `/api/health`, `/api/billing/*`, `/api/usage/*`)
+3. License header is present at the top of every new Java file
+4. Provide a curl test command the user can run immediately
+5. Provide rule chain wiring instructions with exact message type names from `docs/tb-message-types.md`
