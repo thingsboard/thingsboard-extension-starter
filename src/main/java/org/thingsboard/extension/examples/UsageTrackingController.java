@@ -32,7 +32,7 @@ import java.util.Map;
  * Wire this in ThingsBoard:
  *   Rule Chain → REST API Call node
  *   POST http://localhost:8090/api/usage/on-telemetry
- *   Headers: Content-Type: application/json, X-TB-API-Key: YOUR_API_KEY
+ *   Headers: Content-Type: application/json, X-Authorization: ApiKey YOUR_API_KEY
  *
  * Trigger: "Post telemetry" message type in the rule chain.
  * Input: the telemetry JSON from msg.getData(), e.g. {"temperature": 25.5, "humidity": 60}.
@@ -40,7 +40,7 @@ import java.util.Map;
  *
  * Note: this controller does NOT declare a ThingsboardClient parameter —
  * it simply processes the incoming JSON without calling ThingsBoard APIs.
- * The X-TB-API-Key header is still required by the REST API Call node config,
+ * The X-Authorization header is still required by the REST API Call node config,
  * but the controller ignores it.
  */
 @RestController
