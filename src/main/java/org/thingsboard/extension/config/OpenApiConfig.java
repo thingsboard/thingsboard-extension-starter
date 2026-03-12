@@ -28,10 +28,10 @@ import org.thingsboard.client.ThingsboardClient;
 @Configuration
 public class OpenApiConfig {
 
-    private static final String API_KEY_NAME = "X-TB-API-Key";
+    private static final String AUTH_HEADER = "X-Authorization";
 
     static {
-        // ThingsboardClient is auto-resolved from the X-TB-API-Key header — hide it from Swagger UI
+        // ThingsboardClient is auto-resolved from the X-Authorization header — hide it from Swagger UI
         SpringDocUtils.getConfig().addRequestWrapperToIgnore(ThingsboardClient.class);
     }
 
@@ -40,14 +40,21 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("ThingsBoard Extension API")
-                        .description("Custom extension endpoints called by ThingsBoard rule chains")
+                        .description("Custom extension endpoints for ThingsBoard rule chains and widgets")
                         .version("1.0.0"))
                 .components(new Components()
-                        .addSecuritySchemes(API_KEY_NAME, new SecurityScheme()
+                        .addSecuritySchemes("BearerAuth", new SecurityScheme()
                                 .type(SecurityScheme.Type.APIKEY)
                                 .in(SecurityScheme.In.HEADER)
-                                .name(API_KEY_NAME)))
-                .addSecurityItem(new SecurityRequirement().addList(API_KEY_NAME));
+                                .name(AUTH_HEADER)
+                                .description("JWT token from ThingsBoard session. Enter value as: Bearer <your-jwt-token>"))
+                        .addSecuritySchemes("ApiKeyAuth", new SecurityScheme()
+                                .type(SecurityScheme.Type.APIKEY)
+                                .in(SecurityScheme.In.HEADER)
+                                .name(AUTH_HEADER)
+                                .description("ThingsBoard API key. Enter value as: ApiKey <your-api-key>")))
+                .addSecurityItem(new SecurityRequirement().addList("BearerAuth"))
+                .addSecurityItem(new SecurityRequirement().addList("ApiKeyAuth"));
     }
 
 }
