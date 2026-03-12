@@ -32,7 +32,9 @@ import java.nio.charset.StandardCharsets;
 public class RequestLoggingFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(RequestLoggingFilter.class);
-    private static final String API_KEY_HEADER = "X-TB-API-Key";
+    private static final String AUTH_HEADER = "X-Authorization";
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final String API_KEY_PREFIX = "ApiKey ";
     private static final int MAX_BODY_LOG_LENGTH = 500;
 
     @Override
@@ -43,8 +45,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             return;
         }
 
-        String apiKey = maskApiKey(request.getHeader(API_KEY_HEADER));
-        log.debug("--> {} {} (X-TB-API-Key: {})", request.getMethod(), request.getRequestURI(), apiKey);
+        log.debug("--> {} {} ({})", request.getMethod(), request.getRequestURI(), identifyAuth(request));
 
         long start = System.currentTimeMillis();
         ContentCachingResponseWrapper wrappedResponse = new ContentCachingResponseWrapper(response);
@@ -66,14 +67,28 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         }
     }
 
-    private String maskApiKey(String apiKey) {
-        if (apiKey == null || apiKey.isBlank()) {
+    private String identifyAuth(HttpServletRequest request) {
+        String value = request.getHeader(AUTH_HEADER);
+        if (value == null || value.isBlank()) {
+            return "auth: none";
+        }
+        if (value.startsWith(BEARER_PREFIX)) {
+            return "JWT: " + maskCredential(value.substring(BEARER_PREFIX.length()).trim());
+        }
+        if (value.startsWith(API_KEY_PREFIX)) {
+            return "ApiKey: " + maskCredential(value.substring(API_KEY_PREFIX.length()).trim());
+        }
+        return "auth: unknown";
+    }
+
+    private String maskCredential(String credential) {
+        if (credential == null || credential.isBlank()) {
             return "none";
         }
-        if (apiKey.length() <= 6) {
+        if (credential.length() <= 6) {
             return "***";
         }
-        return apiKey.substring(0, 6) + "***";
+        return credential.substring(0, 6) + "***";
     }
 
     private String truncate(String body) {
