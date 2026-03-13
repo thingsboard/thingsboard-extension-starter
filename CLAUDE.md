@@ -167,8 +167,10 @@ src/main/java/org/thingsboard/extension/
 │   ├── ThingsboardClientProvider.java    # Client cache + argument resolver
 │   └── WebConfig.java                    # Registers the argument resolver
 └── examples/                             # Example controllers (can be deleted)
-    ├── BillingController.java
-    └── UsageTrackingController.java
+    ├── BillingController.java            # API key auth pattern (rule chain callback)
+    ├── DeviceHealthCheckTask.java        # Scheduled background job (preconfigured client)
+    ├── UsageTrackingController.java      # No-auth pattern (no TB client needed)
+    └── WidgetDataController.java         # JWT auth pattern (widget callback)
 ```
 
 New extensions go directly in `src/main/java/org/thingsboard/extension/` or in a sub-package.
@@ -313,7 +315,7 @@ Health check: `curl http://localhost:8090/api/health`
 After generating extension code, verify:
 
 1. `./mvnw compile -q` succeeds
-2. Endpoint URL doesn't conflict with existing controllers (check `/api/health`, `/api/billing/*`, `/api/usage/*`)
+2. Endpoint URL doesn't conflict with existing controllers (check `/api/health`, `/api/billing/*`, `/api/usage/*`, `/api/widget/*`)
 3. License header is present at the top of every new Java file
 4. Provide a curl test command the user can run immediately
 5. Provide rule chain wiring instructions with exact message type names from `docs/tb-message-types.md`
