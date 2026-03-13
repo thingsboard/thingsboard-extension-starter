@@ -2,10 +2,7 @@
 
 ## What This Is
 
-A Spring Boot service that extends ThingsBoard with custom logic. It supports two execution models:
-
-1. **HTTP callbacks** (rule chains, widgets) -- each request carries an `X-Authorization` header (`Bearer <jwt>` or `ApiKey <key>`), and the service resolves a `ThingsboardClient` per caller. Each extension is a `@RestController` endpoint.
-2. **Scheduled background jobs** -- preconfigured credentials in `application.yml` provide a long-lived `ThingsboardClient` singleton for tasks that run on a schedule without any incoming HTTP request.
+A Spring Boot starter template for building custom ThingsBoard extensions. Write `@RestController` endpoints or `@Scheduled` background jobs — the template handles ThingsBoard API authentication, client management, and common boilerplate.
 
 ## Important: Know When to Ask vs. When to Figure It Out
 
@@ -83,7 +80,7 @@ Controller template:
 
 ```java
 @RestController
-@RequestMapping("/api/your-feature")
+@RequestMapping("/api/extension/your-feature")
 public class YourFeatureController {
 
     @PostMapping("/on-some-event")
@@ -96,6 +93,7 @@ public class YourFeatureController {
 }
 ```
 
+- All extension endpoints MUST start with `/api/extension/`. The `/api/health` endpoint is reserved for infrastructure.
 - If ThingsBoard API calls are needed: declare `ThingsboardClient tb` as a parameter -- it's auto-resolved from the `X-Authorization` header.
 - If no ThingsBoard API calls are needed: simply omit the `ThingsboardClient` parameter.
 - If new dependencies are needed: add them to `pom.xml`.
@@ -108,7 +106,7 @@ Scheduled task template (for background jobs that run on a timer):
 public class YourScheduledTask {
     private final ThingsboardClient tb;
 
-    public YourScheduledTask(@Qualifier("preconfiguredTbClient") ThingsboardClient tb) {
+    public YourScheduledTask(@Qualifier("tbClient") ThingsboardClient tb) {
         this.tb = tb;
     }
 
@@ -119,7 +117,7 @@ public class YourScheduledTask {
 }
 ```
 
-- The preconfigured client is injected via `@Qualifier("preconfiguredTbClient")` -- it uses credentials from `application.yml`.
+- The `tbClient` bean is injected via `@Qualifier("tbClient")` -- it uses credentials from `application.yml` (`thingsboard.authentication.*`).
 - Do NOT wrap `@Scheduled` methods in try-catch -- the global `ErrorHandler` in `SchedulingConfig` handles exceptions.
 
 ### 5. Verify the code compiles
@@ -133,13 +131,13 @@ Run `./mvnw compile -q` after generating the code. If it fails, read the error o
 1. Open ThingsBoard -> Rule Chains -> your rule chain
 2. Add a **REST API Call** node with:
    - Method: `POST`
-   - URL: `http://localhost:8090/api/your-feature/on-some-event`
+   - URL: `http://localhost:8090/api/extension/your-feature/on-some-event`
    - Headers: `Content-Type: application/json` and `X-Authorization: ApiKey YOUR_API_KEY`
    - Credentials: Anonymous
 3. Connect the triggering node to this REST API Call node (specify the exact message type to filter on)
 4. The response JSON goes to the **Success** route (2xx) or **Failure** route (non-2xx)
 
-**For scheduled tasks:** No rule chain wiring needed. Instead, ensure the user has configured the preconfigured credentials in `application.yml` (or via environment variables `TB_PRECONFIGURED_API_KEY` or `TB_PRECONFIGURED_USERNAME` + `TB_PRECONFIGURED_PASSWORD`). The task runs automatically on the configured schedule.
+**For scheduled tasks:** No rule chain wiring needed. Instead, ensure the user has configured credentials in `application.yml` (or via environment variables `TB_AUTH_API_KEY` or `TB_AUTH_USERNAME` + `TB_AUTH_PASSWORD`). The task runs automatically on the configured schedule.
 
 ## Project Conventions
 
@@ -149,7 +147,7 @@ Three ways to get a `ThingsboardClient`:
 
 - **Request-based (API key)**: Rule chain sends `X-Authorization: ApiKey <key>` header. `ThingsboardClientProvider` resolves a cached client. Declare `ThingsboardClient tb` as a controller method parameter.
 - **Request-based (JWT)**: Widget sends `X-Authorization: Bearer <jwt>` header. `ThingsboardClientProvider` resolves a cached client. Same parameter injection as API key.
-- **Preconfigured (background jobs)**: Credentials in `application.yml` (`thingsboard.preconfigured.*`). Inject via constructor: `@Qualifier("preconfiguredTbClient") ThingsboardClient tb`. Used for scheduled tasks and startup logic -- no HTTP request needed.
+- **Configured (background jobs)**: Optional credentials in `application.yml` (`thingsboard.authentication.*`). Inject via constructor: `@Qualifier("tbClient") ThingsboardClient tb`. Used for scheduled tasks and startup logic -- no HTTP request needed.
 
 For request-based flows, missing or invalid `X-Authorization` header returns 401 Unauthorized.
 
@@ -158,17 +156,17 @@ For request-based flows, missing or invalid `X-Authorization` header returns 401
 src/main/java/org/thingsboard/extension/
 ├── ThingsboardExtensionApplication.java  # Spring Boot entry point + @EnableScheduling
 ├── config/
+│   ├── AuthenticationClientConfig.java   # Optional TB client bean for background jobs
 │   ├── GlobalExceptionHandler.java       # Structured JSON error responses
 │   ├── HealthController.java             # GET /api/health
 │   ├── OpenApiConfig.java                # Swagger UI with dual auth schemes
-│   ├── PreconfiguredClientConfig.java    # Preconfigured TB client bean
 │   ├── RequestLoggingFilter.java         # Request/response logging
 │   ├── SchedulingConfig.java             # Scheduler error handling
 │   ├── ThingsboardClientProvider.java    # Client cache + argument resolver
 │   └── WebConfig.java                    # Registers the argument resolver
 └── examples/                             # Example controllers (can be deleted)
     ├── BillingController.java            # API key auth pattern (rule chain callback)
-    ├── DeviceHealthCheckTask.java        # Scheduled background job (preconfigured client)
+    ├── DeviceHealthCheckTask.java        # Scheduled background job
     ├── UsageTrackingController.java      # No-auth pattern (no TB client needed)
     └── WidgetDataController.java         # JWT auth pattern (widget callback)
 ```
@@ -181,57 +179,22 @@ New extensions go directly in `src/main/java/org/thingsboard/extension/` or in a
 - **2xx** = Success route in rule chain
 - **non-2xx** = Failure route in rule chain
 
-## Scheduled Tasks
+## ThingsboardClient Bean
 
-### How scheduling works
-
-`@EnableScheduling` on the application class activates `@Scheduled` annotation processing. The project uses virtual threads (`spring.threads.virtual.enabled=true`), so Spring Boot auto-configures `SimpleAsyncTaskScheduler` -- each scheduled task runs on its own virtual thread.
-
-### Error handling
-
-A custom `ErrorHandler` in `SchedulingConfig` logs exceptions at ERROR level with the full stack trace. Tasks continue running on the next trigger after a failure. Do NOT add try-catch in `@Scheduled` methods unless you need custom recovery logic (e.g., retry with backoff, compensating action).
-
-### Scheduling patterns
-
-```java
-// Fixed rate: runs every 60 seconds regardless of previous execution time
-@Scheduled(fixedRate = 60, timeUnit = TimeUnit.SECONDS)
-public void everyMinute() { /* ... */ }
-
-// Cron: runs at 2:00 AM daily
-@Scheduled(cron = "0 0 2 * * *")
-public void dailyAt2am() { /* ... */ }
-
-// Initial delay + fixed rate: wait 30s after startup, then every 5 minutes
-@Scheduled(initialDelay = 30, fixedRate = 300, timeUnit = TimeUnit.SECONDS)
-public void withDelay() { /* ... */ }
-```
-
-### Injecting the preconfigured client
-
-Scheduled tasks run outside HTTP request context, so they cannot use the argument resolver. Instead, inject the preconfigured `ThingsboardClient` bean via constructor:
+To call ThingsBoard APIs outside HTTP request context (e.g., from `@Scheduled` tasks or startup logic), inject the `ThingsboardClient` bean via constructor:
 
 ```java
 @Component
-public class MyScheduledTask {
+public class MyTask {
     private final ThingsboardClient tb;
 
-    public MyScheduledTask(@Qualifier("preconfiguredTbClient") ThingsboardClient tb) {
+    public MyTask(@Qualifier("tbClient") ThingsboardClient tb) {
         this.tb = tb;
-    }
-
-    @Scheduled(fixedRate = 60, timeUnit = TimeUnit.SECONDS)
-    public void run() {
-        // use tb to call ThingsBoard APIs
     }
 }
 ```
 
-### Important notes
-
-- Use `fixedRate` or `cron` for independent tasks. Avoid `fixedDelay` unless sequential execution is intentional -- `fixedDelay` tasks share a single scheduler thread and block each other.
-- The preconfigured client is a singleton -- do NOT create `ThingsboardClient` inside `@Scheduled` methods. That wastes a login round-trip every invocation.
-- Preconfigured client = one fixed identity (the configured tenant). For per-request auth, use the argument resolver (declare `ThingsboardClient` as a controller method parameter).
+This bean is created only when authentication credentials are configured in `application.yml` (see `thingsboard.authentication.*`). Exceptions in scheduled tasks are logged by `SchedulingConfig`'s ErrorHandler — tasks continue on next trigger.
 
 ## API Reference
 
@@ -315,8 +278,8 @@ Health check: `curl http://localhost:8090/api/health`
 After generating extension code, verify:
 
 1. `./mvnw compile -q` succeeds
-2. Endpoint URL doesn't conflict with existing controllers (check `/api/health`, `/api/billing/*`, `/api/usage/*`, `/api/widget/*`)
+2. Endpoint URL starts with `/api/extension/` and doesn't conflict with existing controllers (check `/api/extension/billing/*`, `/api/extension/usage/*`, `/api/extension/widget/*`)
 3. License header is present at the top of every new Java file
 4. Provide a curl test command the user can run immediately
 5. Provide rule chain wiring instructions with exact message type names from `docs/tb-message-types.md`
-6. If creating a scheduled task, verify `TB_PRECONFIGURED_*` env vars are documented in setup instructions
+6. If creating a scheduled task, verify `TB_AUTH_*` env vars are documented in setup instructions

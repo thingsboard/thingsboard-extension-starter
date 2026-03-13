@@ -26,21 +26,21 @@ import org.thingsboard.client.model.PageDataDevice;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Example: run a background job on a schedule using preconfigured TB credentials.
+ * Example: run a background job on a schedule using configured TB credentials.
  *
- * Credential requirements (set one of the following):
- *   TB_PRECONFIGURED_API_KEY=your-api-key
+ * Credential requirements (set one of the following in application.yml or env vars):
+ *   TB_AUTH_API_KEY=your-api-key
  *   or
- *   TB_PRECONFIGURED_USERNAME=your-username
- *   TB_PRECONFIGURED_PASSWORD=your-password
+ *   TB_AUTH_USERNAME=your-username
+ *   TB_AUTH_PASSWORD=your-password
  *
  * No rule chain wiring needed -- the task runs automatically on the configured schedule.
  *
  * Exceptions are caught by SchedulingConfig's ErrorHandler and logged at ERROR level;
  * the task continues running on the next trigger after a failure.
  *
- * If preconfigured credentials are not set, the application will fail to start with
- * NoSuchBeanDefinitionException -- this is intentional.
+ * If authentication credentials are not set, the tbClient bean is not created and the
+ * application will fail to start with NoSuchBeanDefinitionException.
  */
 @Component
 public class DeviceHealthCheckTask {
@@ -49,7 +49,7 @@ public class DeviceHealthCheckTask {
 
     private final ThingsboardClient tb;
 
-    public DeviceHealthCheckTask(@Qualifier("preconfiguredTbClient") ThingsboardClient tb) {
+    public DeviceHealthCheckTask(@Qualifier("tbClient") ThingsboardClient tb) {
         this.tb = tb;
     }
 

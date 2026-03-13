@@ -40,7 +40,7 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("ThingsBoard Extension API")
-                        .description("Custom extension endpoints for ThingsBoard rule chains and widgets")
+                        .description("Custom extension endpoints for ThingsBoard platform")
                         .version("1.0.0"))
                 .components(new Components()
                         .addSecuritySchemes("BearerAuth", new SecurityScheme()

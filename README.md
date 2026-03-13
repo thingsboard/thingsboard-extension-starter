@@ -1,6 +1,6 @@
 # ThingsBoard Extension Starter
 
-A starter project for building custom business logic on top of ThingsBoard. Your extension runs as a standalone Spring Boot service that supports three execution models: rule chain callbacks (API key), widget callbacks (JWT), and scheduled background jobs (preconfigured credentials).
+A starter project for building custom business logic on top of ThingsBoard. Your extension runs as a standalone Spring Boot service — use it for rule chain callbacks, widget backends, scheduled jobs, or any custom integration.
 
 **The experience for vibe-coders:** open this project in [Claude Code](https://claude.com/claude-code), describe what you want in plain language, and Claude generates everything — controller code, POJOs, and rule chain wiring instructions.
 
@@ -12,7 +12,7 @@ One of:
 
 And:
 - A running ThingsBoard instance (default: `http://localhost:8080`)
-- A ThingsBoard API key (for rule chain callbacks) or JWT token (for widget callbacks) or preconfigured credentials (for scheduled tasks)
+- A ThingsBoard API key (for rule chain callbacks) or JWT token (for widget callbacks) or configured credentials (for scheduled tasks)
 
 ## Quick Start
 
@@ -30,7 +30,7 @@ cd thingsboard-extension-starter
 ./run-docker.sh
 
 # 4. Test it
-curl -X POST http://localhost:8090/api/usage/on-telemetry \
+curl -X POST http://localhost:8090/api/extension/usage/on-telemetry \
   -H 'Content-Type: application/json' \
   -H 'X-Authorization: ApiKey YOUR_API_KEY' \
   -d '{"temperature": 25.5, "humidity": 60}'
@@ -78,12 +78,12 @@ Pattern 2: Widget Callback (JWT)
 │    Bearer ${tbAuthToken}  │                │                              │
 └───────────────────────────┘                └──────────────────────────────┘
 
-Pattern 3: Scheduled Background Job (preconfigured credentials)
+Pattern 3: Scheduled Background Job (configured credentials)
 ┌──────────────────────────────────────────────────────────────┐
 │                                                              │
 │  @Scheduled task runs on a timer — no HTTP request          │
 │  ThingsboardClient injected at startup from application.yml  │
-│  (TB_PRECONFIGURED_API_KEY or username+password env vars)    │
+│  (TB_AUTH_API_KEY or username+password env vars)             │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -136,31 +136,31 @@ public Map<String, Object> getCurrentStats(@RequestBody JsonNode params,
 
 **Note:** The value must be `Bearer <token>` including the `Bearer ` prefix and space. The token without the prefix returns 401.
 
-### Preconfigured Credentials (scheduled tasks)
+### Configured Credentials (scheduled tasks)
 
 Used for background jobs that run on a schedule, with no incoming HTTP request.
 
 - **No header needed** — credentials are set in `application.yml` or via environment variables
-- **How to set up:** configure `TB_PRECONFIGURED_API_KEY` (recommended) or `TB_PRECONFIGURED_USERNAME` + `TB_PRECONFIGURED_PASSWORD` environment variables
-- **Component pattern:** `@Component` class with constructor injection using `@Qualifier("preconfiguredTbClient")`
+- **How to set up:** configure `TB_AUTH_API_KEY` (recommended) or `TB_AUTH_USERNAME` + `TB_AUTH_PASSWORD` environment variables
+- **Component pattern:** `@Component` class with constructor injection using `@Qualifier("tbClient")`
 
 ```java
 @Component
 public class MyScheduledTask {
     private final ThingsboardClient tb;
 
-    public MyScheduledTask(@Qualifier("preconfiguredTbClient") ThingsboardClient tb) {
+    public MyScheduledTask(@Qualifier("tbClient") ThingsboardClient tb) {
         this.tb = tb;
     }
 
     @Scheduled(fixedRate = 60, timeUnit = TimeUnit.SECONDS)
     public void run() throws Exception {
-        // tb is authenticated with the preconfigured credentials
+        // tb is authenticated with the configured credentials
     }
 }
 ```
 
-**Note:** If neither `TB_PRECONFIGURED_API_KEY` nor `TB_PRECONFIGURED_USERNAME` is set, the preconfigured client bean is not created and the application will fail to start if a scheduled task tries to inject it.
+**Note:** If neither `TB_AUTH_API_KEY` nor `TB_AUTH_USERNAME` is set, the `tbClient` bean is not created and the application will fail to start if a scheduled task tries to inject it.
 
 ## Example 1: Billing on Device Creation
 
@@ -172,7 +172,7 @@ public class MyScheduledTask {
 
 ```java
 @RestController
-@RequestMapping("/api/billing")
+@RequestMapping("/api/extension/billing")
 public class BillingController {
 
     @PostMapping("/on-device-created")
@@ -213,7 +213,7 @@ public class BillingController {
 3. Configure the node:
    - **Name**: `Billing: on device created`
    - **Method**: `POST`
-   - **URL**: `http://localhost:8090/api/billing/on-device-created`
+   - **URL**: `http://localhost:8090/api/extension/billing/on-device-created`
    - **Headers**:
      - `Content-Type`: `application/json`
      - `X-Authorization`: `ApiKey YOUR_API_KEY`
@@ -239,7 +239,7 @@ public class BillingController {
 
 ```java
 @RestController
-@RequestMapping("/api/usage")
+@RequestMapping("/api/extension/usage")
 public class UsageTrackingController {
 
     @PostMapping("/on-telemetry")
@@ -261,7 +261,7 @@ public class UsageTrackingController {
 
 1. In your rule chain, add a **REST API Call** node:
    - **Method**: `POST`
-   - **URL**: `http://localhost:8090/api/usage/on-telemetry`
+   - **URL**: `http://localhost:8090/api/extension/usage/on-telemetry`
    - **Headers**: `Content-Type: application/json`, `X-Authorization: ApiKey YOUR_API_KEY`
    - **Credentials**: `Anonymous`
 2. From the **Message Type Switch** node, connect **Post telemetry** to this node
@@ -271,7 +271,7 @@ public class UsageTrackingController {
 
 ```bash
 # Simulate what the rule chain sends
-curl -X POST http://localhost:8090/api/usage/on-telemetry \
+curl -X POST http://localhost:8090/api/extension/usage/on-telemetry \
   -H 'Content-Type: application/json' \
   -H 'X-Authorization: ApiKey any-key-here' \
   -d '{"temperature": 25.5, "humidity": 60, "pressure": 1013.25}'
@@ -292,7 +292,7 @@ Response:
 
 ```java
 @RestController
-@RequestMapping("/api/widget")
+@RequestMapping("/api/extension/widget")
 public class WidgetDataController {
 
     @PostMapping("/current-stats")
@@ -315,7 +315,7 @@ public class WidgetDataController {
 
 In your ThingsBoard widget, configure an HTTP Datasource:
 - **Method**: `POST`
-- **URL**: `http://localhost:8090/api/widget/current-stats`
+- **URL**: `http://localhost:8090/api/extension/widget/current-stats`
 - **Headers**:
   - `Content-Type`: `application/json`
   - `X-Authorization`: `Bearer ${tbAuthToken}`
@@ -325,7 +325,7 @@ In your ThingsBoard widget, configure an HTTP Datasource:
 **Alternative method: Custom widget JavaScript**
 
 ```javascript
-fetch('http://localhost:8090/api/widget/current-stats', {
+fetch('http://localhost:8090/api/extension/widget/current-stats', {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json',
@@ -343,7 +343,7 @@ fetch('http://localhost:8090/api/widget/current-stats', {
 
 ```bash
 # Test using a JWT token from ThingsBoard
-curl -X POST http://localhost:8090/api/widget/current-stats \
+curl -X POST http://localhost:8090/api/extension/widget/current-stats \
   -H 'Content-Type: application/json' \
   -H 'X-Authorization: Bearer YOUR_JWT_TOKEN' \
   -d '{}'
@@ -373,7 +373,7 @@ public class DeviceHealthCheckTask {
 
     private final ThingsboardClient tb;
 
-    public DeviceHealthCheckTask(@Qualifier("preconfiguredTbClient") ThingsboardClient tb) {
+    public DeviceHealthCheckTask(@Qualifier("tbClient") ThingsboardClient tb) {
         this.tb = tb;
     }
 
@@ -394,7 +394,7 @@ public class DeviceHealthCheckTask {
 ```
 
 **How it works:**
-- The `@Qualifier("preconfiguredTbClient")` injects the background task client configured in `application.yml`
+- The `@Qualifier("tbClient")` injects the background task client configured in `application.yml`
 - `@Scheduled(fixedRate = 60, timeUnit = TimeUnit.SECONDS)` triggers the method every 60 seconds
 - The method logs how many devices exist and saves a `lastHealthCheckTs` attribute to each one
 - No rule chain wiring needed — the task starts automatically when the service starts
@@ -402,15 +402,15 @@ public class DeviceHealthCheckTask {
 
 ### Setup
 
-No rule chain wiring needed. Set the preconfigured credentials before starting the service:
+No rule chain wiring needed. Set the authentication credentials before starting the service:
 
 ```bash
 # Option 1: API key (recommended)
-export TB_PRECONFIGURED_API_KEY=your-api-key-here
+export TB_AUTH_API_KEY=your-api-key-here
 
 # Option 2: Username and password
-export TB_PRECONFIGURED_USERNAME=tenant@example.com
-export TB_PRECONFIGURED_PASSWORD=your-password
+export TB_AUTH_USERNAME=tenant@example.com
+export TB_AUTH_PASSWORD=your-password
 
 # Then start the service
 ./run.sh
@@ -419,7 +419,7 @@ export TB_PRECONFIGURED_PASSWORD=your-password
 Or in `docker-compose.yml`:
 ```yaml
 environment:
-  - TB_PRECONFIGURED_API_KEY=your-api-key-here
+  - TB_AUTH_API_KEY=your-api-key-here
 ```
 
 **Verification:** After the service starts, check the logs for the INFO message:
@@ -427,34 +427,6 @@ environment:
 Health check: 5 devices in tenant
 ```
 Then open a device in ThingsBoard → **Attributes** → **Server attributes** and verify `lastHealthCheckTs` appears.
-
-## Scheduling Guide
-
-### Scheduling patterns
-
-```java
-// Fixed rate: runs every 60 seconds regardless of previous execution time
-@Scheduled(fixedRate = 60, timeUnit = TimeUnit.SECONDS)
-public void everyMinute() { /* ... */ }
-
-// Cron: runs at 2:00 AM daily
-@Scheduled(cron = "0 0 2 * * *")
-public void dailyAt2am() { /* ... */ }
-
-// Initial delay + fixed rate: wait 30s after startup, then every 5 minutes
-@Scheduled(initialDelay = 30, fixedRate = 300, timeUnit = TimeUnit.SECONDS)
-public void withDelay() { /* ... */ }
-```
-
-Use `fixedRate` or `cron` for independent tasks. Avoid `fixedDelay` unless sequential execution is intentional — `fixedDelay` tasks share a single scheduler thread and block each other.
-
-### Error handling
-
-A custom `ErrorHandler` in `SchedulingConfig` catches all exceptions thrown by scheduled tasks, logs them at ERROR level with the full stack trace, and lets the task continue running on the next trigger. Do NOT add try-catch inside `@Scheduled` methods unless you need custom recovery logic (retry with backoff, compensating action).
-
-### Preconfigured client is a singleton
-
-Do NOT create `ThingsboardClient` inside `@Scheduled` methods — that wastes a login round-trip every invocation. Always inject the client via constructor, as shown in Example 4.
 
 ## Creating Your Own Extension
 
@@ -481,9 +453,9 @@ Claude will:
 
 **For a scheduled background job:**
 1. Create a new `@Component` class in `src/main/java/org/thingsboard/extension/`
-2. Inject `@Qualifier("preconfiguredTbClient") ThingsboardClient tb` via constructor
+2. Inject `@Qualifier("tbClient") ThingsboardClient tb` via constructor
 3. Add a method annotated with `@Scheduled`
-4. Set `TB_PRECONFIGURED_API_KEY` (or username+password) before starting the service
+4. Set `TB_AUTH_API_KEY` (or username+password) before starting the service
 5. No rule chain wiring needed — the task runs automatically
 
 ### Hot Reload (development)
@@ -503,9 +475,9 @@ The project includes `spring-boot-devtools`. When running with `./mvnw spring-bo
 | `thingsboard.url` | `http://localhost:8080` | ThingsBoard base URL |
 | `thingsboard.client.cache-ttl` | `60` | Client cache TTL in minutes. For JWT auth, set this lower than the ThingsBoard JWT TTL (default 2.5 hours) to avoid serving expired cached clients. |
 | `thingsboard.client.cache-max-size` | `100` | Max cached ThingsBoard clients |
-| `thingsboard.preconfigured.api-key` | _(empty)_ | Preconfigured API key for scheduled tasks. Takes precedence over username+password if both are set. |
-| `thingsboard.preconfigured.username` | _(empty)_ | Preconfigured username for scheduled tasks. |
-| `thingsboard.preconfigured.password` | _(empty)_ | Preconfigured password for scheduled tasks. |
+| `thingsboard.authentication.api-key` | _(empty)_ | Optional API key for the shared ThingsboardClient bean. Takes precedence over username+password if both are set. |
+| `thingsboard.authentication.username` | _(empty)_ | Optional username for the shared ThingsboardClient bean. |
+| `thingsboard.authentication.password` | _(empty)_ | Optional password for the shared ThingsboardClient bean. |
 
 Request/response logging is controlled by the logback level for `org.thingsboard.extension` (DEBUG = on, INFO = off). See `src/main/resources/logback.xml`.
 
@@ -515,9 +487,9 @@ Request/response logging is controlled by the logback level for `org.thingsboard
 |----------|---------|-------------|
 | `SERVER_PORT` | `8090` | Port mapping |
 | `THINGSBOARD_URL` | `http://host.docker.internal:8080` | ThingsBoard URL from container |
-| `TB_PRECONFIGURED_API_KEY` | _(empty)_ | API key for scheduled tasks (takes precedence over username+password) |
-| `TB_PRECONFIGURED_USERNAME` | _(empty)_ | Username for scheduled tasks |
-| `TB_PRECONFIGURED_PASSWORD` | _(empty)_ | Password for scheduled tasks |
+| `TB_AUTH_API_KEY` | _(empty)_ | API key for the shared ThingsboardClient bean (takes precedence over username+password) |
+| `TB_AUTH_USERNAME` | _(empty)_ | Username for the shared ThingsboardClient bean |
+| `TB_AUTH_PASSWORD` | _(empty)_ | Password for the shared ThingsboardClient bean |
 | `JAVA_OPTS` | _(empty)_ | JVM options |
 
 ### Headers
@@ -557,7 +529,7 @@ The REST API Call node supports templates in the URL:
 - `${metadataKey}` — replaced with a value from message metadata
 - `$[dataKey]` — replaced with a value from message data
 
-Example: `http://localhost:8090/api/billing/on-device-created?type=${deviceType}&name=$[name]`
+Example: `http://localhost:8090/api/extension/billing/on-device-created?type=${deviceType}&name=$[name]`
 
 ### Including metadata in the request body
 

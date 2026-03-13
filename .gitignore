@@ -1,4 +1,5 @@
 /.idea/
 /target/
 .claude
+.planning
 .env

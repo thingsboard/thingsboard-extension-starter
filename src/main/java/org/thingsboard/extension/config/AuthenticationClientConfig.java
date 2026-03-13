@@ -25,25 +25,26 @@ import org.thingsboard.client.ApiException;
 import org.thingsboard.client.ThingsboardClient;
 
 /**
- * Creates a long-lived, preconfigured {@link ThingsboardClient} singleton for use
- * in scheduled tasks, background jobs, and other non-HTTP contexts where no
- * incoming request (and therefore no {@code X-Authorization} header) is available.
+ * Creates a long-lived {@link ThingsboardClient} singleton for use in scheduled tasks,
+ * background jobs, and other non-HTTP contexts where no incoming request (and therefore
+ * no {@code X-Authorization} header) is available.
+ *
+ * <p>This bean is <strong>optional</strong> — it is only created when authentication
+ * credentials are configured in {@code application.yml} (or via environment variables).
+ * When no credentials are configured, the application starts normally without it,
+ * and only request-based authentication (via {@code X-Authorization} header) is available.</p>
  *
  * <p>Supports two authentication modes:</p>
  * <ul>
  *   <li><strong>API key</strong> — no expiry, simple pass-through. Set
- *       {@code thingsboard.preconfigured.api-key}.</li>
+ *       {@code thingsboard.authentication.api-key}.</li>
  *   <li><strong>Username/password</strong> — the client logs in at startup and
  *       auto-refreshes JWT tokens; re-logs in when the refresh token expires. Set
- *       {@code thingsboard.preconfigured.username} and
- *       {@code thingsboard.preconfigured.password}.</li>
+ *       {@code thingsboard.authentication.username} and
+ *       {@code thingsboard.authentication.password}.</li>
  * </ul>
  *
  * <p>If both API key and username are configured, <strong>API key takes precedence</strong>.</p>
- *
- * <p>The bean is only created when at least one credential property is non-empty.
- * When no credentials are configured the application starts normally without it,
- * and only request-based authentication (via {@code X-Authorization} header) is available.</p>
  *
  * <p><strong>Note:</strong> In credentials mode, {@code builder().credentials().build()}
  * performs a login call immediately. If ThingsBoard is unreachable at startup, the
@@ -52,31 +53,31 @@ import org.thingsboard.client.ThingsboardClient;
  *
  * <p>Inject via:</p>
  * <pre>{@code
- * @Qualifier("preconfiguredTbClient") ThingsboardClient tb
+ * @Qualifier("tbClient") ThingsboardClient tb
  * }</pre>
  */
 @Configuration
-@ConditionalOnExpression("'${thingsboard.preconfigured.api-key:}' != '' or '${thingsboard.preconfigured.username:}' != ''")
-public class PreconfiguredClientConfig {
+@ConditionalOnExpression("'${thingsboard.authentication.api-key:}' != '' or '${thingsboard.authentication.username:}' != ''")
+public class AuthenticationClientConfig {
 
-    private static final Logger log = LoggerFactory.getLogger(PreconfiguredClientConfig.class);
+    private static final Logger log = LoggerFactory.getLogger(AuthenticationClientConfig.class);
 
-    @Bean("preconfiguredTbClient")
-    public ThingsboardClient preconfiguredTbClient(
+    @Bean("tbClient")
+    public ThingsboardClient tbClient(
             @Value("${thingsboard.url}") String url,
-            @Value("${thingsboard.preconfigured.api-key:}") String apiKey,
-            @Value("${thingsboard.preconfigured.username:}") String username,
-            @Value("${thingsboard.preconfigured.password:}") String password) throws ApiException {
+            @Value("${thingsboard.authentication.api-key:}") String apiKey,
+            @Value("${thingsboard.authentication.username:}") String username,
+            @Value("${thingsboard.authentication.password:}") String password) throws ApiException {
 
         if (!apiKey.isBlank()) {
-            log.info("Creating preconfigured ThingsboardClient with API key");
+            log.info("Creating ThingsboardClient with API key");
             return ThingsboardClient.builder()
                     .url(url)
                     .apiKey(apiKey)
                     .build();
         }
 
-        log.info("Creating preconfigured ThingsboardClient with credentials ({})", username);
+        log.info("Creating ThingsboardClient with credentials ({})", username);
         return ThingsboardClient.builder()
                 .url(url)
                 .credentials(username, password)

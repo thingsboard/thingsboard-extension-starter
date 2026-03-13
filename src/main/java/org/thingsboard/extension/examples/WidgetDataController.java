@@ -30,7 +30,7 @@ import java.util.Map;
  *
  * Wire this in ThingsBoard:
  *   Widget → HTTP Datasource or custom JS fetch
- *   POST http://localhost:8090/api/widget/current-stats
+ *   POST http://localhost:8090/api/extension/widget/current-stats
  *   Headers: Content-Type: application/json, X-Authorization: Bearer ${tbAuthToken}
  *
  * The widget provides the user's session JWT automatically via ${tbAuthToken}.
@@ -45,7 +45,7 @@ import java.util.Map;
  * Output: stats JSON displayed in the widget.
  */
 @RestController
-@RequestMapping("/api/widget")
+@RequestMapping("/api/extension/widget")
 public class WidgetDataController {
 
     @PostMapping("/current-stats")

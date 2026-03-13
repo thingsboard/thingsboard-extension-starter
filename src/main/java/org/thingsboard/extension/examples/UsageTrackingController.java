@@ -31,7 +31,7 @@ import java.util.Map;
  *
  * Wire this in ThingsBoard:
  *   Rule Chain → REST API Call node
- *   POST http://localhost:8090/api/usage/on-telemetry
+ *   POST http://localhost:8090/api/extension/usage/on-telemetry
  *   Headers: Content-Type: application/json, X-Authorization: ApiKey YOUR_API_KEY
  *
  * Trigger: "Post telemetry" message type in the rule chain.
@@ -44,7 +44,7 @@ import java.util.Map;
  * but the controller ignores it.
  */
 @RestController
-@RequestMapping("/api/usage")
+@RequestMapping("/api/extension/usage")
 public class UsageTrackingController {
 
     @PostMapping("/on-telemetry")
