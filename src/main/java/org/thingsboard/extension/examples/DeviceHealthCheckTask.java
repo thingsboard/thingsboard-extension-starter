@@ -15,9 +15,7 @@
  */
 package org.thingsboard.extension.examples;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.thingsboard.client.ThingsboardClient;
@@ -42,14 +40,13 @@ import java.util.concurrent.TimeUnit;
  * If authentication credentials are not set, the tbClient bean is not created and the
  * application will fail to start with NoSuchBeanDefinitionException.
  */
+@Slf4j
 @Component
 public class DeviceHealthCheckTask {
 
-    private static final Logger log = LoggerFactory.getLogger(DeviceHealthCheckTask.class);
-
     private final ThingsboardClient tb;
 
-    public DeviceHealthCheckTask(@Qualifier("tbClient") ThingsboardClient tb) {
+    public DeviceHealthCheckTask(ThingsboardClient tb) {
         this.tb = tb;
     }
 

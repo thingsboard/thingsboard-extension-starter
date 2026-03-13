@@ -15,8 +15,7 @@
  */
 package org.thingsboard.extension.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Bean;
@@ -50,20 +49,14 @@ import org.thingsboard.client.ThingsboardClient;
  * performs a login call immediately. If ThingsBoard is unreachable at startup, the
  * application will fail to start. This is intentional — a misconfigured background
  * client should surface early rather than fail silently on the first scheduled run.</p>
- *
- * <p>Inject via:</p>
- * <pre>{@code
- * @Qualifier("tbClient") ThingsboardClient tb
- * }</pre>
  */
+@Slf4j
 @Configuration
 @ConditionalOnExpression("'${thingsboard.authentication.api-key:}' != '' or '${thingsboard.authentication.username:}' != ''")
-public class AuthenticationClientConfig {
+public class ThingsboardAuthConfig {
 
-    private static final Logger log = LoggerFactory.getLogger(AuthenticationClientConfig.class);
-
-    @Bean("tbClient")
-    public ThingsboardClient tbClient(
+    @Bean
+    public ThingsboardClient thingsboardClient(
             @Value("${thingsboard.url}") String url,
             @Value("${thingsboard.authentication.api-key:}") String apiKey,
             @Value("${thingsboard.authentication.username:}") String username,

@@ -19,8 +19,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingResponseWrapper;
@@ -28,10 +27,9 @@ import org.springframework.web.util.ContentCachingResponseWrapper;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
+@Slf4j
 @Component
 public class RequestLoggingFilter extends OncePerRequestFilter {
-
-    private static final Logger log = LoggerFactory.getLogger(RequestLoggingFilter.class);
     private static final String AUTH_HEADER = "X-Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String API_KEY_PREFIX = "ApiKey ";
@@ -45,7 +43,9 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             return;
         }
 
-        log.debug("--> {} {} ({})", request.getMethod(), request.getRequestURI(), identifyAuth(request));
+        if (log.isDebugEnabled()) {
+            log.debug("--> {} {} ({})", request.getMethod(), request.getRequestURI(), identifyAuth(request));
+        }
 
         long start = System.currentTimeMillis();
         ContentCachingResponseWrapper wrappedResponse = new ContentCachingResponseWrapper(response);

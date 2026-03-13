@@ -18,8 +18,7 @@ package org.thingsboard.extension.config;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
@@ -50,10 +49,9 @@ import java.util.concurrent.TimeUnit;
  * Clients are cached with namespaced keys ({@code "jwt:"} and {@code "apikey:"} prefixes)
  * to prevent collisions between the two auth types.
  */
+@Slf4j
 @Component
 public class ThingsboardClientProvider implements HandlerMethodArgumentResolver {
-
-    private static final Logger log = LoggerFactory.getLogger(ThingsboardClientProvider.class);
 
     private static final String AUTH_HEADER = "X-Authorization";
     private static final String BEARER_PREFIX = "Bearer ";

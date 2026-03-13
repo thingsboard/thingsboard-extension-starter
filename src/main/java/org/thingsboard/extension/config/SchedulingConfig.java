@@ -15,8 +15,7 @@
  */
 package org.thingsboard.extension.config;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.task.SimpleAsyncTaskSchedulerCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,10 +33,9 @@ import org.springframework.context.annotation.Configuration;
  * The {@link SimpleAsyncTaskSchedulerCustomizer} is the Spring Boot-idiomatic way
  * to modify the auto-configured scheduler without replacing it.
  */
+@Slf4j
 @Configuration
 public class SchedulingConfig {
-
-    private static final Logger log = LoggerFactory.getLogger(SchedulingConfig.class);
 
     @Bean
     public SimpleAsyncTaskSchedulerCustomizer schedulerErrorHandler() {

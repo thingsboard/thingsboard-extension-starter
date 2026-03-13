@@ -142,14 +142,14 @@ Used for background jobs that run on a schedule, with no incoming HTTP request.
 
 - **No header needed** — credentials are set in `application.yml` or via environment variables
 - **How to set up:** configure `TB_AUTH_API_KEY` (recommended) or `TB_AUTH_USERNAME` + `TB_AUTH_PASSWORD` environment variables
-- **Component pattern:** `@Component` class with constructor injection using `@Qualifier("tbClient")`
+- **Component pattern:** `@Component` class with constructor injection of `ThingsboardClient`
 
 ```java
 @Component
 public class MyScheduledTask {
     private final ThingsboardClient tb;
 
-    public MyScheduledTask(@Qualifier("tbClient") ThingsboardClient tb) {
+    public MyScheduledTask(ThingsboardClient tb) {
         this.tb = tb;
     }
 
@@ -160,7 +160,7 @@ public class MyScheduledTask {
 }
 ```
 
-**Note:** If neither `TB_AUTH_API_KEY` nor `TB_AUTH_USERNAME` is set, the `tbClient` bean is not created and the application will fail to start if a scheduled task tries to inject it.
+**Note:** If neither `TB_AUTH_API_KEY` nor `TB_AUTH_USERNAME` is set, the `ThingsboardClient` bean is not created and the application will fail to start if a scheduled task tries to inject it.
 
 ## Example 1: Billing on Device Creation
 
@@ -373,7 +373,7 @@ public class DeviceHealthCheckTask {
 
     private final ThingsboardClient tb;
 
-    public DeviceHealthCheckTask(@Qualifier("tbClient") ThingsboardClient tb) {
+    public DeviceHealthCheckTask(ThingsboardClient tb) {
         this.tb = tb;
     }
 
@@ -394,7 +394,7 @@ public class DeviceHealthCheckTask {
 ```
 
 **How it works:**
-- The `@Qualifier("tbClient")` injects the background task client configured in `application.yml`
+- The `ThingsboardClient` is the background task client configured in `application.yml`
 - `@Scheduled(fixedRate = 60, timeUnit = TimeUnit.SECONDS)` triggers the method every 60 seconds
 - The method logs how many devices exist and saves a `lastHealthCheckTs` attribute to each one
 - No rule chain wiring needed — the task starts automatically when the service starts
@@ -453,7 +453,7 @@ Claude will:
 
 **For a scheduled background job:**
 1. Create a new `@Component` class in `src/main/java/org/thingsboard/extension/`
-2. Inject `@Qualifier("tbClient") ThingsboardClient tb` via constructor
+2. Inject `ThingsboardClient tb` via constructor
 3. Add a method annotated with `@Scheduled`
 4. Set `TB_AUTH_API_KEY` (or username+password) before starting the service
 5. No rule chain wiring needed — the task runs automatically
