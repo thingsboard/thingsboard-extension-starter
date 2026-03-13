@@ -27,7 +27,7 @@ thingsboard:
     cache-ttl: ${TB_CLIENT_CACHE_TTL:60}
     # Maximum number of cached ThingsBoard clients (one per unique API key)
     cache-max-size: ${TB_CLIENT_CACHE_MAX_SIZE:100}
-  authentication:
+  auth:
     # Optional ThingsBoard credentials for the shared ThingsboardClient bean.
     # Used by scheduled tasks, background jobs, and any code outside HTTP request context.
     # Set EITHER api-key OR username+password. If both are set, api-key takes precedence.

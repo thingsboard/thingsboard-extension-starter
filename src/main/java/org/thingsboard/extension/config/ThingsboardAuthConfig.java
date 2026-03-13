@@ -36,11 +36,11 @@ import org.thingsboard.client.ThingsboardClient;
  * <p>Supports two authentication modes:</p>
  * <ul>
  *   <li><strong>API key</strong> — no expiry, simple pass-through. Set
- *       {@code thingsboard.authentication.api-key}.</li>
+ *       {@code thingsboard.auth.api-key}.</li>
  *   <li><strong>Username/password</strong> — the client logs in at startup and
  *       auto-refreshes JWT tokens; re-logs in when the refresh token expires. Set
- *       {@code thingsboard.authentication.username} and
- *       {@code thingsboard.authentication.password}.</li>
+ *       {@code thingsboard.auth.username} and
+ *       {@code thingsboard.auth.password}.</li>
  * </ul>
  *
  * <p>If both API key and username are configured, <strong>API key takes precedence</strong>.</p>
@@ -52,15 +52,15 @@ import org.thingsboard.client.ThingsboardClient;
  */
 @Slf4j
 @Configuration
-@ConditionalOnExpression("'${thingsboard.authentication.api-key:}' != '' or '${thingsboard.authentication.username:}' != ''")
+@ConditionalOnExpression("'${thingsboard.auth.api-key:}' != '' or '${thingsboard.auth.username:}' != ''")
 public class ThingsboardAuthConfig {
 
     @Bean
     public ThingsboardClient thingsboardClient(
             @Value("${thingsboard.url}") String url,
-            @Value("${thingsboard.authentication.api-key:}") String apiKey,
-            @Value("${thingsboard.authentication.username:}") String username,
-            @Value("${thingsboard.authentication.password:}") String password) throws ApiException {
+            @Value("${thingsboard.auth.api-key:}") String apiKey,
+            @Value("${thingsboard.auth.username:}") String username,
+            @Value("${thingsboard.auth.password:}") String password) throws ApiException {
 
         if (!apiKey.isBlank()) {
             log.info("Creating ThingsboardClient with API key");

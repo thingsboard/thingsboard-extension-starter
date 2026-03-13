@@ -475,9 +475,9 @@ The project includes `spring-boot-devtools`. When running with `./mvnw spring-bo
 | `thingsboard.url` | `http://localhost:8080` | ThingsBoard base URL |
 | `thingsboard.client.cache-ttl` | `60` | Client cache TTL in minutes. For JWT auth, set this lower than the ThingsBoard JWT TTL (default 2.5 hours) to avoid serving expired cached clients. |
 | `thingsboard.client.cache-max-size` | `100` | Max cached ThingsBoard clients |
-| `thingsboard.authentication.api-key` | _(empty)_ | Optional API key for the shared ThingsboardClient bean. Takes precedence over username+password if both are set. |
-| `thingsboard.authentication.username` | _(empty)_ | Optional username for the shared ThingsboardClient bean. |
-| `thingsboard.authentication.password` | _(empty)_ | Optional password for the shared ThingsboardClient bean. |
+| `thingsboard.auth.api-key` | _(empty)_ | Optional API key for the shared ThingsboardClient bean. Takes precedence over username+password if both are set. |
+| `thingsboard.auth.username` | _(empty)_ | Optional username for the shared ThingsboardClient bean. |
+| `thingsboard.auth.password` | _(empty)_ | Optional password for the shared ThingsboardClient bean. |
 
 Request/response logging is controlled by the logback level for `org.thingsboard.extension` (DEBUG = on, INFO = off). See `src/main/resources/logback.xml`.
 

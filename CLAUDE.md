@@ -117,7 +117,7 @@ public class YourScheduledTask {
 }
 ```
 
-- The `ThingsboardClient` bean uses credentials from `application.yml` (`thingsboard.authentication.*`).
+- The `ThingsboardClient` bean uses credentials from `application.yml` (`thingsboard.auth.*`).
 - Do NOT wrap `@Scheduled` methods in try-catch -- the global `ErrorHandler` in `SchedulingConfig` handles exceptions.
 
 ### 5. Verify the code compiles
@@ -147,7 +147,7 @@ Three ways to get a `ThingsboardClient`:
 
 - **Request-based (API key)**: Rule chain sends `X-Authorization: ApiKey <key>` header. `ThingsboardClientProvider` resolves a cached client. Declare `ThingsboardClient tb` as a controller method parameter.
 - **Request-based (JWT)**: Widget sends `X-Authorization: Bearer <jwt>` header. `ThingsboardClientProvider` resolves a cached client. Same parameter injection as API key.
-- **Configured (background jobs)**: Optional credentials in `application.yml` (`thingsboard.authentication.*`). Inject via constructor: `ThingsboardClient tb`. Used for scheduled tasks and startup logic -- no HTTP request needed.
+- **Configured (background jobs)**: Optional credentials in `application.yml` (`thingsboard.auth.*`). Inject via constructor: `ThingsboardClient tb`. Used for scheduled tasks and startup logic -- no HTTP request needed.
 
 For request-based flows, missing or invalid `X-Authorization` header returns 401 Unauthorized.
 
@@ -194,7 +194,7 @@ public class MyTask {
 }
 ```
 
-This bean is created only when authentication credentials are configured in `application.yml` (see `thingsboard.authentication.*`). Exceptions in scheduled tasks are logged by `SchedulingConfig`'s ErrorHandler — tasks continue on next trigger.
+This bean is created only when authentication credentials are configured in `application.yml` (see `thingsboard.auth.*`). Exceptions in scheduled tasks are logged by `SchedulingConfig`'s ErrorHandler — tasks continue on next trigger.
 
 ## API Reference
 
