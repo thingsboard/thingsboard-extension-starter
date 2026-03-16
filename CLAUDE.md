@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A Spring Boot service that receives HTTP callbacks from ThingsBoard rule chains and optionally calls ThingsBoard APIs back. Each extension is a `@RestController` endpoint. The ThingsBoard API key travels with each request in the `X-TB-API-Key` header, so the service is stateless and multi-tenant.
+A Spring Boot starter template for building custom ThingsBoard extensions. Write `@RestController` endpoints or `@Scheduled` background jobs — the template handles ThingsBoard API authentication, client management, and common boilerplate.
 
 ## Important: Know When to Ask vs. When to Figure It Out
 
@@ -80,7 +80,7 @@ Controller template:
 
 ```java
 @RestController
-@RequestMapping("/api/your-feature")
+@RequestMapping("/api/extension/your-feature")
 public class YourFeatureController {
 
     @PostMapping("/on-some-event")
@@ -93,49 +93,84 @@ public class YourFeatureController {
 }
 ```
 
-- If ThingsBoard API calls are needed: declare `ThingsboardClient tb` as a parameter — it's auto-resolved from the `X-TB-API-Key` header.
+- All extension endpoints MUST start with `/api/extension/`. The `/api/health` endpoint is reserved for infrastructure.
+- If ThingsBoard API calls are needed: declare `ThingsboardClient tb` as a parameter -- it's auto-resolved from the `X-Authorization` header.
 - If no ThingsBoard API calls are needed: simply omit the `ThingsboardClient` parameter.
 - If new dependencies are needed: add them to `pom.xml`.
 - If the input/output JSON is complex: create POJO classes next to the controller.
+
+Scheduled task template (for background jobs that run on a timer):
+
+```java
+@ConditionalOnBean(ThingsboardClient.class)
+@Component
+public class YourScheduledTask {
+    private final ThingsboardClient tb;
+
+    public YourScheduledTask(ThingsboardClient tb) {
+        this.tb = tb;
+    }
+
+    @Scheduled(fixedRate = 60, timeUnit = TimeUnit.SECONDS)
+    public void run() {
+        // use tb to call ThingsBoard APIs on a schedule
+    }
+}
+```
+
+- The `ThingsboardClient` bean uses credentials from `application.yml` (`thingsboard.auth.*`).
+- Use `@ConditionalOnBean(ThingsboardClient.class)` so the task is silently skipped when no credentials are configured.
+- Do NOT wrap `@Scheduled` methods in try-catch -- the global `ErrorHandler` in `SchedulingConfig` handles exceptions.
 
 ### 5. Verify the code compiles
 
 Run `./mvnw compile -q` after generating the code. If it fails, read the error output and fix the issues before proceeding. This catches wrong imports, missing types, and API mismatches immediately.
 
-### 6. Provide rule chain setup instructions
+### 6. Provide setup instructions
 
-After generating the code, tell the user exactly how to wire it in ThingsBoard. Use the exact message type names from `docs/tb-message-types.md` (e.g., `ENTITY_CREATED`, `POST_TELEMETRY_REQUEST`) — do not guess or paraphrase them.
+**For controller extensions (HTTP callbacks):** Tell the user how to wire it in ThingsBoard. Use the exact message type names from `docs/tb-message-types.md` (e.g., `ENTITY_CREATED`, `POST_TELEMETRY_REQUEST`) -- do not guess or paraphrase them.
 
-1. Open ThingsBoard → Rule Chains → your rule chain
+1. Open ThingsBoard -> Rule Chains -> your rule chain
 2. Add a **REST API Call** node with:
    - Method: `POST`
-   - URL: `http://localhost:8090/api/your-feature/on-some-event`
-   - Headers: `Content-Type: application/json` and `X-TB-API-Key: YOUR_API_KEY`
+   - URL: `http://localhost:8090/api/extension/your-feature/on-some-event`
+   - Headers: `Content-Type: application/json` and `X-Authorization: ApiKey YOUR_API_KEY`
    - Credentials: Anonymous
 3. Connect the triggering node to this REST API Call node (specify the exact message type to filter on)
 4. The response JSON goes to the **Success** route (2xx) or **Failure** route (non-2xx)
 
+**For scheduled tasks:** No rule chain wiring needed. Ensure the user has configured credentials in `application.yml` (or via environment variables `TB_AUTH_API_KEY` or `TB_AUTH_USERNAME` + `TB_AUTH_PASSWORD`). The task runs automatically on the configured schedule.
+
 ## Project Conventions
 
-### API key flow
-- ThingsBoard REST API Call node sends `X-TB-API-Key` header with every request
-- `ThingsboardClientProvider` reads the header and creates/caches a `ThingsboardClient` per API key
-- Controller methods that declare a `ThingsboardClient` parameter get it auto-injected
-- Missing header → 401 Unauthorized
+### Authentication flows
+
+Three ways to get a `ThingsboardClient`:
+
+- **Request-based (API key)**: Rule chain sends `X-Authorization: ApiKey <key>` header. `ThingsboardClientProvider` resolves a cached client. Declare `ThingsboardClient tb` as a controller method parameter.
+- **Request-based (JWT)**: Widget sends `X-Authorization: Bearer <jwt>` header. `ThingsboardClientProvider` resolves a cached client. Same parameter injection as API key.
+- **Configured (background jobs)**: Optional credentials in `application.yml` (`thingsboard.auth.*`). Inject via constructor: `ThingsboardClient tb`. Used for scheduled tasks and startup logic -- no HTTP request needed.
+
+For request-based flows, missing or invalid `X-Authorization` header returns 401 Unauthorized.
 
 ### File structure
 ```
 src/main/java/org/thingsboard/extension/
-├── ThingsboardExtensionApplication.java  # Spring Boot entry point
+├── ThingsboardExtensionApplication.java  # Spring Boot entry point + @EnableScheduling
 ├── config/
+│   ├── ThingsboardAuthConfig.java        # Optional TB client bean for background jobs
 │   ├── GlobalExceptionHandler.java       # Structured JSON error responses
 │   ├── HealthController.java             # GET /api/health
+│   ├── OpenApiConfig.java                # Swagger UI with dual auth schemes
 │   ├── RequestLoggingFilter.java         # Request/response logging
+│   ├── SchedulingConfig.java             # Scheduler error handling
 │   ├── ThingsboardClientProvider.java    # Client cache + argument resolver
 │   └── WebConfig.java                    # Registers the argument resolver
 └── examples/                             # Example controllers (can be deleted)
-    ├── BillingController.java
-    └── UsageTrackingController.java
+    ├── BillingController.java            # API key auth pattern (rule chain callback)
+    ├── DeviceHealthCheckTask.java        # Scheduled background job
+    ├── UsageTrackingController.java      # No-auth pattern (no TB client needed)
+    └── WidgetDataController.java         # JWT auth pattern (widget callback)
 ```
 
 New extensions go directly in `src/main/java/org/thingsboard/extension/` or in a sub-package.
@@ -145,6 +180,24 @@ New extensions go directly in `src/main/java/org/thingsboard/extension/` or in a
 - **Output**: any JSON — becomes the outgoing message in the rule chain
 - **2xx** = Success route in rule chain
 - **non-2xx** = Failure route in rule chain
+
+## ThingsboardClient Bean
+
+To call ThingsBoard APIs outside HTTP request context (e.g., from `@Scheduled` tasks or startup logic), inject the `ThingsboardClient` bean via constructor:
+
+```java
+@ConditionalOnBean(ThingsboardClient.class)
+@Component
+public class MyTask {
+    private final ThingsboardClient tb;
+
+    public MyTask(ThingsboardClient tb) {
+        this.tb = tb;
+    }
+}
+```
+
+This bean is created only when authentication credentials are configured in `application.yml` (see `thingsboard.auth.*`). Use `@ConditionalOnBean(ThingsboardClient.class)` on components that depend on it — they'll be silently skipped when no credentials are set. Exceptions in scheduled tasks are logged by `SchedulingConfig`'s ErrorHandler — tasks continue on next trigger.
 
 ## API Reference
 
@@ -228,7 +281,8 @@ Health check: `curl http://localhost:8090/api/health`
 After generating extension code, verify:
 
 1. `./mvnw compile -q` succeeds
-2. Endpoint URL doesn't conflict with existing controllers (check `/api/health`, `/api/billing/*`, `/api/usage/*`)
+2. Endpoint URL starts with `/api/extension/` and doesn't conflict with existing controllers (check `/api/extension/billing/*`, `/api/extension/usage/*`, `/api/extension/widget/*`)
 3. License header is present at the top of every new Java file
 4. Provide a curl test command the user can run immediately
 5. Provide rule chain wiring instructions with exact message type names from `docs/tb-message-types.md`
+6. If creating a scheduled task, verify `TB_AUTH_*` env vars are documented in setup instructions

@@ -30,15 +30,15 @@ import java.util.Map;
  *
  * Wire this in ThingsBoard:
  *   Rule Chain → REST API Call node
- *   POST http://localhost:8090/api/billing/on-device-created
- *   Headers: Content-Type: application/json, X-TB-API-Key: YOUR_API_KEY
+ *   POST http://localhost:8090/api/extension/billing/on-device-created
+ *   Headers: Content-Type: application/json, X-Authorization: ApiKey YOUR_API_KEY
  *
  * Trigger: "Device Created" message type in the rule chain.
  * Input: the device JSON from msg.getData().
  * Output: confirmation JSON with the billing timestamp.
  */
 @RestController
-@RequestMapping("/api/billing")
+@RequestMapping("/api/extension/billing")
 public class BillingController {
 
     @PostMapping("/on-device-created")

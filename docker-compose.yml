@@ -24,6 +24,9 @@ services:
     environment:
       THINGSBOARD_URL: ${THINGSBOARD_URL:-http://host.docker.internal:8080}
       JAVA_OPTS: ${JAVA_OPTS:-}
+      TB_AUTH_API_KEY: ${TB_AUTH_API_KEY:-}
+      TB_AUTH_USERNAME: ${TB_AUTH_USERNAME:-}
+      TB_AUTH_PASSWORD: ${TB_AUTH_PASSWORD:-}
     volumes:
       - ./config:/config
     extra_hosts:

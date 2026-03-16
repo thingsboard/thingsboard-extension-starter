@@ -18,6 +18,7 @@ package org.thingsboard.extension.config;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
@@ -30,17 +31,31 @@ import org.springframework.web.server.ResponseStatusException;
 import org.thingsboard.client.ApiException;
 import org.thingsboard.client.ThingsboardClient;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Provides ThingsboardClient instances keyed by API key.
- * Also resolves ThingsboardClient parameters in controller methods
- * by reading the X-TB-API-Key header from the incoming request.
+ * Provides ThingsboardClient instances via the unified X-Authorization header.
+ * <p>
+ * Supports two authentication schemes:
+ * <ul>
+ *   <li>{@code X-Authorization: Bearer <jwt>} — creates a JWT-based client via {@code setToken()}</li>
+ *   <li>{@code X-Authorization: ApiKey <key>} — creates an API key client via {@code builder().apiKey()}</li>
+ * </ul>
+ * <p>
+ * Also resolves {@link ThingsboardClient} parameters in controller methods automatically.
+ * Clients are cached with namespaced keys ({@code "jwt:"} and {@code "apikey:"} prefixes)
+ * to prevent collisions between the two auth types.
  */
+@Slf4j
 @Component
 public class ThingsboardClientProvider implements HandlerMethodArgumentResolver {
 
-    private static final String API_KEY_HEADER = "X-TB-API-Key";
+    private static final String AUTH_HEADER = "X-Authorization";
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final String API_KEY_PREFIX = "ApiKey ";
 
     private final String thingsboardUrl;
     private final Cache<String, ThingsboardClient> clients;
@@ -55,18 +70,52 @@ public class ThingsboardClientProvider implements HandlerMethodArgumentResolver 
                 .build();
     }
 
-    public ThingsboardClient getClient(String apiKey) {
-        return clients.get(apiKey, key -> {
+    private ThingsboardClient getClientForApiKey(String apiKey) {
+        String cacheKey = "apikey:" + apiKey;
+        return clients.get(cacheKey, key -> {
             try {
                 return ThingsboardClient.builder()
                         .url(thingsboardUrl)
-                        .apiKey(key)
+                        .apiKey(apiKey)
                         .build();
             } catch (ApiException e) {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                         "Cannot connect to ThingsBoard at " + thingsboardUrl + ": " + e.getMessage());
             }
         });
+    }
+
+    // Note: cached JWT clients hold the token set at creation time. If cache TTL outlasts
+    // the JWT's validity, calls will fail with expired-token errors. The default cache TTL
+    // (60 min) is well under ThingsBoard's default JWT TTL (2.5 hours), so defaults are safe.
+    private ThingsboardClient getClientForJwt(String token) {
+        String cacheKey = "jwt:" + hashToken(token);
+        return clients.get(cacheKey, key -> {
+            try {
+                ThingsboardClient client = ThingsboardClient.builder()
+                        .url(thingsboardUrl)
+                        .build();
+                client.setToken(token);
+                return client;
+            } catch (ApiException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                        "Cannot connect to ThingsBoard at " + thingsboardUrl + ": " + e.getMessage());
+            }
+        });
+    }
+
+    private String hashToken(String token) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(16);
+            for (int i = 0; i < 8; i++) {
+                sb.append(String.format("%02x", hash[i]));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
+        }
     }
 
     @Override
@@ -78,12 +127,25 @@ public class ThingsboardClientProvider implements HandlerMethodArgumentResolver 
     public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
                                   NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
         HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
-        String apiKey = request != null ? request.getHeader(API_KEY_HEADER) : null;
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
-                    "Missing " + API_KEY_HEADER + " header");
+        String authHeader = request != null ? request.getHeader(AUTH_HEADER) : null;
+
+        if (authHeader != null && authHeader.startsWith(BEARER_PREFIX)) {
+            String token = authHeader.substring(BEARER_PREFIX.length()).trim();
+            if (!token.isEmpty()) {
+                return getClientForJwt(token);
+            }
         }
-        return getClient(apiKey);
+
+        if (authHeader != null && authHeader.startsWith(API_KEY_PREFIX)) {
+            String apiKey = authHeader.substring(API_KEY_PREFIX.length()).trim();
+            if (!apiKey.isEmpty()) {
+                return getClientForApiKey(apiKey);
+            }
+        }
+
+        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                "Missing or invalid X-Authorization header. " +
+                "Use 'Bearer <token>' for JWT or 'ApiKey <key>' for API key authentication.");
     }
 
 }
