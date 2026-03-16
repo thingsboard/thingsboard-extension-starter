@@ -102,6 +102,7 @@ public class YourFeatureController {
 Scheduled task template (for background jobs that run on a timer):
 
 ```java
+@ConditionalOnBean(ThingsboardClient.class)
 @Component
 public class YourScheduledTask {
     private final ThingsboardClient tb;
@@ -118,6 +119,7 @@ public class YourScheduledTask {
 ```
 
 - The `ThingsboardClient` bean uses credentials from `application.yml` (`thingsboard.auth.*`).
+- Use `@ConditionalOnBean(ThingsboardClient.class)` so the task is silently skipped when no credentials are configured.
 - Do NOT wrap `@Scheduled` methods in try-catch -- the global `ErrorHandler` in `SchedulingConfig` handles exceptions.
 
 ### 5. Verify the code compiles
@@ -184,6 +186,7 @@ New extensions go directly in `src/main/java/org/thingsboard/extension/` or in a
 To call ThingsBoard APIs outside HTTP request context (e.g., from `@Scheduled` tasks or startup logic), inject the `ThingsboardClient` bean via constructor:
 
 ```java
+@ConditionalOnBean(ThingsboardClient.class)
 @Component
 public class MyTask {
     private final ThingsboardClient tb;
@@ -194,7 +197,7 @@ public class MyTask {
 }
 ```
 
-This bean is created only when authentication credentials are configured in `application.yml` (see `thingsboard.auth.*`). Exceptions in scheduled tasks are logged by `SchedulingConfig`'s ErrorHandler — tasks continue on next trigger.
+This bean is created only when authentication credentials are configured in `application.yml` (see `thingsboard.auth.*`). Use `@ConditionalOnBean(ThingsboardClient.class)` on components that depend on it — they'll be silently skipped when no credentials are set. Exceptions in scheduled tasks are logged by `SchedulingConfig`'s ErrorHandler — tasks continue on next trigger.
 
 ## API Reference
 

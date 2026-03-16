@@ -16,6 +16,7 @@
 package org.thingsboard.extension.examples;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.thingsboard.client.ThingsboardClient;
@@ -37,10 +38,11 @@ import java.util.concurrent.TimeUnit;
  * Exceptions are caught by SchedulingConfig's ErrorHandler and logged at ERROR level;
  * the task continues running on the next trigger after a failure.
  *
- * If authentication credentials are not set, the tbClient bean is not created and the
- * application will fail to start with NoSuchBeanDefinitionException.
+ * If authentication credentials are not set, the ThingsboardClient bean is not created
+ * and this component is silently skipped (via @ConditionalOnBean).
  */
 @Slf4j
+@ConditionalOnBean(ThingsboardClient.class)
 @Component
 public class DeviceHealthCheckTask {
 

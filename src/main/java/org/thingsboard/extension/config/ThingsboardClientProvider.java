@@ -85,6 +85,9 @@ public class ThingsboardClientProvider implements HandlerMethodArgumentResolver 
         });
     }
 
+    // Note: cached JWT clients hold the token set at creation time. If cache TTL outlasts
+    // the JWT's validity, calls will fail with expired-token errors. The default cache TTL
+    // (60 min) is well under ThingsBoard's default JWT TTL (2.5 hours), so defaults are safe.
     private ThingsboardClient getClientForJwt(String token) {
         String cacheKey = "jwt:" + hashToken(token);
         return clients.get(cacheKey, key -> {

@@ -128,7 +128,7 @@ Used when ThingsBoard dashboard widgets call your extension directly.
 
 ```java
 @PostMapping("/current-stats")
-public Map<String, Object> getCurrentStats(@RequestBody JsonNode params,
+public Map<String, Object> currentStats(@RequestBody JsonNode params,
                                            ThingsboardClient tb) throws Exception {
     // tb is authenticated with the user's JWT — API calls respect tenant/permissions
 }
@@ -145,6 +145,7 @@ Used for background jobs that run on a schedule, with no incoming HTTP request.
 - **Component pattern:** `@Component` class with constructor injection of `ThingsboardClient`
 
 ```java
+@ConditionalOnBean(ThingsboardClient.class)
 @Component
 public class MyScheduledTask {
     private final ThingsboardClient tb;
@@ -160,7 +161,7 @@ public class MyScheduledTask {
 }
 ```
 
-**Note:** If neither `TB_AUTH_API_KEY` nor `TB_AUTH_USERNAME` is set, the `ThingsboardClient` bean is not created and the application will fail to start if a scheduled task tries to inject it.
+**Note:** If neither `TB_AUTH_API_KEY` nor `TB_AUTH_USERNAME` is set, the `ThingsboardClient` bean is not created. Components that use `@ConditionalOnBean(ThingsboardClient.class)` (like the example `DeviceHealthCheckTask`) are silently skipped — the app starts normally without them.
 
 ## Example 1: Billing on Device Creation
 
@@ -296,7 +297,7 @@ Response:
 public class WidgetDataController {
 
     @PostMapping("/current-stats")
-    public Map<String, Object> getCurrentStats(@RequestBody JsonNode params,
+    public Map<String, Object> currentStats(@RequestBody JsonNode params,
                                                ThingsboardClient tb) throws Exception {
         PageDataDevice devices = tb.getTenantDevices(1, 0, null, null, null, null);
         return Map.of(
@@ -366,6 +367,7 @@ curl -X POST http://localhost:8080/api/auth/login \
 `src/main/java/org/thingsboard/extension/examples/DeviceHealthCheckTask.java`:
 
 ```java
+@ConditionalOnBean(ThingsboardClient.class)
 @Component
 public class DeviceHealthCheckTask {
 
