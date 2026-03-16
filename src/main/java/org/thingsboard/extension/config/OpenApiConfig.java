@@ -43,18 +43,14 @@ public class OpenApiConfig {
                         .description("Custom extension endpoints for ThingsBoard platform")
                         .version("1.0.0"))
                 .components(new Components()
-                        .addSecuritySchemes("BearerAuth", new SecurityScheme()
+                        .addSecuritySchemes("ThingsBoard", new SecurityScheme()
                                 .type(SecurityScheme.Type.APIKEY)
                                 .in(SecurityScheme.In.HEADER)
                                 .name(AUTH_HEADER)
-                                .description("JWT token from ThingsBoard session. Enter value as: Bearer <your-jwt-token>"))
-                        .addSecuritySchemes("ApiKeyAuth", new SecurityScheme()
-                                .type(SecurityScheme.Type.APIKEY)
-                                .in(SecurityScheme.In.HEADER)
-                                .name(AUTH_HEADER)
-                                .description("ThingsBoard API key. Enter value as: ApiKey <your-api-key>")))
-                .addSecurityItem(new SecurityRequirement().addList("BearerAuth"))
-                .addSecurityItem(new SecurityRequirement().addList("ApiKeyAuth"));
+                                .description("Enter the full value including prefix, for example:\n\n" +
+                                             "API key: '**ApiKey** tb_WXlnQiJ-VQ8...'\n\n" +
+                                             "JWT: '**Bearer** eyJhbGciOiJIUzI1NiJ9...'")))
+                .addSecurityItem(new SecurityRequirement().addList("ThingsBoard"));
     }
 
 }
