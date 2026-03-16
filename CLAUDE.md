@@ -10,7 +10,7 @@ The user of this project is most likely **not a developer** — they understand 
 
 - **Business logic questions → always ask the user** (using `AskUserQuestion`). Never guess what the user wants. If you're unsure about the intended behavior, what data to use, which entities are involved, how something should be triggered, or what the output should look like — ask. Examples: "Should deleted devices decrement the count or reset it?", "Which asset should store this data?", "Should this run on every telemetry message or only when a threshold is exceeded?"
 
-- **Technical/implementation questions → figure it out yourself.** Do not ask the user about Java imports, Spring annotations, method signatures, build errors, or ThingsBoard client API usage. Use the API docs in `target/api-docs/`, the examples in `target/api-docs/tb-examples.md`, and `./mvnw compile` to resolve technical issues on your own.
+- **Technical/implementation questions → figure it out yourself.** Do not ask the user about Java imports, Spring annotations, method signatures, build errors, or ThingsBoard client API usage. Use the API docs in `target/api-docs/` (controller APIs *and* model class docs), the examples in `target/api-docs/tb-examples.md`, and `./mvnw compile` to resolve technical issues on your own. **Never search `~/.m2` or decompile JARs** — all API and model documentation is in `target/api-docs/`.
 
 ## How to Create a New Extension
 
@@ -24,7 +24,9 @@ Before doing ANYTHING else, ask the user which ThingsBoard edition they're targe
 
 - **CE** — Community Edition (open-source)
 - **PE** — Professional Edition (licensed, extra features)
-- **PaaS** — ThingsBoard Cloud
+- **PaaS** — ThingsBoard Cloud (managed SaaS)
+
+Do NOT mention ThingsBoard Cloud domain URLs — just use the label above.
 
 Then update the `thingsboard-client.artifactId` property in `pom.xml`:
 
@@ -203,7 +205,13 @@ This bean is created only when authentication credentials are configured in `app
 
 The full ThingsboardClient API docs are packaged inside the client JAR and extracted to `target/api-docs/` during build. Run `./mvnw generate-resources` if the folder doesn't exist.
 
-Each `*Api.md` file (e.g., `DeviceControllerApi.md`, `TelemetryControllerApi.md`) lists all available methods with parameters and return types. **Always consult these docs when generating extension code** to ensure you use methods that actually exist.
+**⚠️ NEVER search `~/.m2/repository`, decompile JARs, or use `find`/`jar`/`javap` commands to inspect client library internals. Everything you need is in `target/api-docs/`.**
+
+`target/api-docs/` contains three kinds of documentation:
+
+1. **Controller API docs** (`*ControllerApi.md`) — e.g., `DeviceControllerApi.md`, `TelemetryControllerApi.md`. Each lists all available methods with parameters and return types.
+2. **Model class docs** (e.g., `EntitySubtype.md`, `Device.md`, `Alarm.md`) — each lists the model's properties, types, and getter/setter conventions. **When a method returns a type you're unfamiliar with, read that type's `.md` file in `target/api-docs/`** to learn its properties and available getters.
+3. **ThingsboardClient source** (`ThingsboardClient.java`) — the actual client class source code. Read this when you need to understand method signatures, overloads, or client behavior that isn't covered by the controller API docs. `ThingsboardClient` extends `ThingsboardApi` (the generated 98K-line class with all API methods) — the controller API docs already cover those methods, so you do NOT need the `ThingsboardApi` source.
 
 **Important:** When you need to call ThingsBoard APIs, always **read the full method table** at the top of the relevant `*ControllerApi.md` file (it's typically under 20 lines). Do not grep for guessed method names — the actual method names may differ from what you'd expect (e.g., `getTenantAssetByName` not `getAssetsByName`).
 

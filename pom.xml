@@ -40,7 +40,7 @@
         <main.dir>${basedir}</main.dir>
         <thingsboard-client.version>4.4.0-SNAPSHOT</thingsboard-client.version>
         <!-- ThingsBoard edition: thingsboard-ce-client / thingsboard-pe-client / thingsboard-paas-client -->
-        <thingsboard-client.artifactId>thingsboard-pe-client</thingsboard-client.artifactId>
+        <thingsboard-client.artifactId>thingsboard-paas-client</thingsboard-client.artifactId>
     </properties>
 
     <dependencies>
@@ -105,6 +105,49 @@
                                     <outputDirectory>${project.build.directory}</outputDirectory>
                                 </artifactItem>
                             </artifactItems>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>unpack-client-source</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>unpack</goal>
+                        </goals>
+                        <configuration>
+                            <overWriteIfNewer>false</overWriteIfNewer>
+                            <overWriteReleases>true</overWriteReleases>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.thingsboard.client</groupId>
+                                    <artifactId>${thingsboard-client.artifactId}</artifactId>
+                                    <version>${thingsboard-client.version}</version>
+                                    <classifier>sources</classifier>
+                                    <includes>org/thingsboard/client/ThingsboardClient.java</includes>
+                                    <outputDirectory>${project.build.directory}/client-src-tmp</outputDirectory>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>flatten-client-source</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <move file="${project.build.directory}/client-src-tmp/org/thingsboard/client/ThingsboardClient.java"
+                                      tofile="${project.build.directory}/api-docs/ThingsboardClient.java"
+                                      failonerror="false"/>
+                                <delete dir="${project.build.directory}/client-src-tmp" failonerror="false"/>
+                            </target>
                         </configuration>
                     </execution>
                 </executions>
