@@ -29,11 +29,11 @@ import java.util.Map;
  * Example: serve data to a ThingsBoard widget using JWT authentication.
  *
  * Wire this in ThingsBoard:
- *   Widget → HTTP Datasource or custom JS fetch
- *   POST http://localhost:8090/api/extension/widget/current-stats
- *   Headers: Content-Type: application/json, X-Authorization: Bearer ${tbAuthToken}
+ *   Widget → HTTP Datasource
+ *   POST /api/extension/widget/current-stats (relative path — TB adds JWT automatically)
+ *   Headers: Content-Type: application/json
  *
- * The widget provides the user's session JWT automatically via ${tbAuthToken}.
+ * ThingsBoard automatically includes the user's JWT when the URL is a relative /api path.
  * The ThingsboardClient is authenticated as that user -- API calls respect the
  * user's tenant and permissions.
  *

@@ -63,7 +63,7 @@ Pattern 1: HTTP Callback (rule chain or widget)
 Pattern 2: Scheduled Background Job (configured credentials)
 ┌──────────────────────────────────────────────────────────────┐
 │                                                              │
-│  @Scheduled task runs on a timer — no HTTP request          │
+│  @Scheduled task runs on a timer — no HTTP request           │
 │  ThingsboardClient injected at startup from application.yml  │
 │  (TB_AUTH_API_KEY or username+password env vars)             │
 │                                                              │
@@ -72,9 +72,9 @@ Pattern 2: Scheduled Background Job (configured credentials)
 
 **The X-Authorization header carries authentication:**
 1. For rule chain callbacks, you configure a REST API Call node to send `X-Authorization: ApiKey <key>`
-2. For widget callbacks, the widget sends `X-Authorization: Bearer <jwt>` using the `${tbAuthToken}` variable
+2. For widget callbacks, the widget automatically includes the user's JWT when the URL starts with `/api` (relative path) — no manual header setup needed
 3. Your extension reads the header and creates a `ThingsboardClient` authenticated as that caller
-4. Multi-tenancy for free — different tenants send different credentials
+4. Different tenants send different credentials, so multi-tenancy works automatically
 
 **Request/response is plain JSON:**
 - **Input**: `msg.getData()` from the rule chain — whatever JSON the triggering event carries
@@ -105,7 +105,7 @@ public Map<String, Object> onDeviceCreated(@RequestBody JsonNode device,
 Used when ThingsBoard dashboard widgets call your extension directly.
 
 - **Header format:** `X-Authorization: Bearer <jwt>`
-- **How to get the token:** ThingsBoard injects `${tbAuthToken}` automatically in widget datasource configurations — you do not need to manage the JWT yourself
+- **How it works:** ThingsBoard automatically includes the user's JWT when the widget makes requests to URLs starting with `/api` (relative path) — no manual token handling needed
 - **Controller pattern:** identical to API key — declare `ThingsboardClient tb` as a method parameter. The provider detects the `Bearer ` prefix and uses JWT auth automatically
 
 ```java
@@ -170,16 +170,6 @@ public class UsageTrackingController {
 }
 ```
 
-### Rule chain setup
-
-1. In your rule chain, add a **REST API Call** node:
-   - **Method**: `POST`
-   - **URL**: `http://localhost:8090/api/extension/usage/on-telemetry`
-   - **Headers**: `Content-Type: application/json`, `X-Authorization: ApiKey YOUR_API_KEY`
-   - **Credentials**: `Anonymous` (authentication is handled by the X-Authorization header, not the node's credential type)
-2. From the **Message Type Switch** node, connect **Post telemetry** to this node
-3. Save the rule chain
-
 ### Testing
 
 ```bash
@@ -230,30 +220,7 @@ public class BillingController {
 1. `ThingsboardClient tb` — auto-resolved from the `X-Authorization` header
 2. `device.get("id").get("id").asText()` — extracts the device UUID from the ThingsBoard entity ID structure `{"entityType": "DEVICE", "id": "uuid"}`
 3. `tb.saveDeviceAttributes(...)` — calls the ThingsBoard REST API to save server-side attributes
-4. The JSON response goes to the **Success** route of the REST API Call node
-
-### Rule chain setup
-
-1. Open **ThingsBoard UI → Rule Chains** → edit your rule chain (or create a new one)
-2. In the left panel, find **Action → REST API Call** and drag it onto the canvas
-3. Configure the node:
-   - **Name**: `Billing: on device created`
-   - **Method**: `POST`
-   - **URL**: `http://localhost:8090/api/extension/billing/on-device-created`
-   - **Headers**:
-     - `Content-Type`: `application/json`
-     - `X-Authorization`: `ApiKey YOUR_API_KEY`
-   - **Credentials**: `Anonymous`
-4. Connect the **Entity Created** message type to this node:
-   - From the root **Message Type Switch** node, draw a connection labeled `Entity Created` to your REST API Call node
-5. Save the rule chain
-
-### Testing
-
-1. Start the extension: `./run.sh`
-2. Create a device in ThingsBoard (UI or API)
-3. Open the device → **Attributes** tab → **Server attributes**
-4. Verify `billingActive: true` and `billingStartedAt` appear
+4. Returns a JSON response — 2xx goes to the Success route, non-2xx to the Failure route
 
 ## Example 3: Widget Data Endpoint
 
@@ -278,54 +245,6 @@ public class WidgetDataController {
         );
     }
 }
-```
-
-### Widget wiring
-
-**Primary method: HTTP Datasource**
-
-In your ThingsBoard widget, configure an HTTP Datasource:
-- **Method**: `POST`
-- **URL**: `http://localhost:8090/api/extension/widget/current-stats`
-- **Headers**:
-  - `Content-Type`: `application/json`
-  - `X-Authorization`: `Bearer ${tbAuthToken}`
-
-`${tbAuthToken}` is a ThingsBoard platform variable that is injected automatically when the widget runs in a dashboard context — it contains the current user's session JWT. You do not manage this token yourself.
-
-**Alternative method: Custom widget JavaScript**
-
-```javascript
-fetch('http://localhost:8090/api/extension/widget/current-stats', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-        'X-Authorization': 'Bearer ' + ctx.authService.getJwtToken()
-    },
-    body: JSON.stringify({})
-})
-.then(r => r.json())
-.then(data => {
-    // use data.totalDevices in your widget
-});
-```
-
-### Testing
-
-```bash
-# Test using a JWT token from ThingsBoard
-curl -X POST http://localhost:8090/api/extension/widget/current-stats \
-  -H 'Content-Type: application/json' \
-  -H 'X-Authorization: Bearer YOUR_JWT_TOKEN' \
-  -d '{}'
-```
-
-To get a JWT for testing, log in to ThingsBoard via the REST API:
-```bash
-curl -X POST http://localhost:8080/api/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"username":"tenant@example.com","password":"your-password"}'
-# Use the "token" field from the response as YOUR_JWT_TOKEN
 ```
 
 ## Example 4: Scheduled Health Check
@@ -406,23 +325,21 @@ Claude will:
 1. Ask clarifying questions (or you provide details upfront)
 2. Generate the controller class (or scheduled task)
 3. Add any needed dependencies to `pom.xml`
-4. Tell you exactly how to wire the rule chain (or configure credentials for scheduled tasks)
+4. Provide setup and testing instructions
 
 ### Option B: Manual
 
-**For a rule chain or widget callback:**
+**For an HTTP callback (rule chain or widget):**
 1. Create a new `@RestController` class in `src/main/java/org/thingsboard/extension/`
 2. Add a `@PostMapping` method that takes `@RequestBody JsonNode` (or a custom POJO)
 3. If you need ThingsBoard APIs, add `ThingsboardClient tb` as a parameter
 4. Return any object — Spring serializes it to JSON
-5. Wire a REST API Call node in ThingsBoard pointing to your endpoint
 
 **For a scheduled background job:**
 1. Create a new `@Component` class in `src/main/java/org/thingsboard/extension/`
 2. Inject `ThingsboardClient tb` via constructor
 3. Add a method annotated with `@Scheduled`
 4. Set `TB_AUTH_API_KEY` (or username+password) before starting the service
-5. No rule chain wiring needed — the task runs automatically
 
 ### Hot Reload (development)
 
@@ -465,46 +382,3 @@ Request/response logging is controlled by the logback level for `org.thingsboard
 | `Content-Type` | Yes | Must be `application/json` |
 | `X-Authorization` | Yes* | Authentication header. Two schemes: `ApiKey <key>` for rule chain callbacks, `Bearer <jwt>` for widget callbacks. *Required when the controller declares a `ThingsboardClient` parameter. Missing or invalid header returns 401. |
 
-### Creating an API Key
-
-1. Log in to ThingsBoard as **Tenant Administrator**
-2. Go to **API Keys** section in the left menu
-3. Click the **+** button to create a new API key
-4. Copy the key value — this is what goes in the `X-Authorization: ApiKey <key>` header
-
-## Rule Chain Patterns
-
-### Common event types and how to wire them
-
-| Event | Message Type in Rule Chain | Typical Use Case |
-|-------|---------------------------|------------------|
-| Device created | `Entity Created` | Provisioning, billing |
-| Device deleted | `Entity Deleted` | Cleanup, deprovisioning |
-| Telemetry received | `Post telemetry` | Usage tracking, enrichment, forwarding |
-| Attributes updated | `Attributes Updated` | Config sync, notifications |
-| Alarm created/updated | `Alarm Created` / `Alarm Updated` | Notifications, escalation |
-| Device activity | `Activity Event` | Monitoring, status tracking |
-| Device inactivity | `Inactivity Event` | Alerting, health checks |
-
-### URL templates
-
-The REST API Call node supports templates in the URL:
-
-- `${metadataKey}` — replaced with a value from message metadata
-- `$[dataKey]` — replaced with a value from message data
-
-Example: `http://localhost:8090/api/extension/billing/on-device-created?type=${deviceType}&name=$[name]`
-
-### Including metadata in the request body
-
-By default, the REST API Call node sends only `msg.getData()`. To include metadata fields:
-
-1. Add a **Script** node before the REST API Call
-2. In the script, merge metadata into the data:
-   ```javascript
-   var data = JSON.parse(msg);
-   data.deviceName = metadata.deviceName;
-   data.deviceType = metadata.deviceType;
-   return {msg: JSON.stringify(data), metadata: metadata, msgType: msgType};
-   ```
-3. Connect the Script node's output to the REST API Call node
