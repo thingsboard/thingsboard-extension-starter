@@ -46,11 +46,12 @@ public class BillingController {
                                                ThingsboardClient tb) throws Exception {
         String deviceId = device.get("id").get("id").asText();
         String deviceName = device.get("name").asText();
+        String billingStartedAt = Instant.now().toString();
 
         // Save a server-side attribute marking billing activation
         String billingJson = """
                 {"billingActive": true, "billingStartedAt": "%s"}
-                """.formatted(Instant.now().toString());
+                """.formatted(billingStartedAt);
 
         tb.saveDeviceAttributes(deviceId, "SERVER_SCOPE", billingJson);
 
@@ -58,7 +59,7 @@ public class BillingController {
                 "status", "ok",
                 "deviceId", deviceId,
                 "deviceName", deviceName,
-                "billingStartedAt", Instant.now().toString()
+                "billingStartedAt", billingStartedAt
         );
     }
 

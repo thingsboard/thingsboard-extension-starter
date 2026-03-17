@@ -2,7 +2,7 @@
 
 A starter project for building custom business logic on top of ThingsBoard. Your extension runs as a standalone Spring Boot service — use it for rule chain callbacks, widget backends, scheduled jobs, or any custom integration.
 
-**The experience for vibe-coders:** open this project in [Claude Code](https://claude.com/claude-code), describe what you want in plain language, and Claude generates everything — controller code, POJOs, and rule chain wiring instructions.
+Works great with [Claude Code](https://claude.com/claude-code) — describe what you want in plain language and Claude generates the controller code, POJOs, and rule chain wiring instructions.
 
 ## Prerequisites
 
@@ -32,7 +32,6 @@ cd thingsboard-extension-starter
 # 4. Test it
 curl -X POST http://localhost:8090/api/extension/usage/on-telemetry \
   -H 'Content-Type: application/json' \
-  -H 'X-Authorization: ApiKey YOUR_API_KEY' \
   -d '{"temperature": 25.5, "humidity": 60}'
 ```
 
@@ -41,44 +40,27 @@ Response:
 {"status":"ok","keysReceived":2,"keys":["temperature","humidity"]}
 ```
 
-### Alternative ways to run
+Health check: `curl http://localhost:8090/api/health`
 
-```bash
-# With Maven directly (requires Java 25)
-./mvnw spring-boot:run
-
-# With Docker Compose
-./mvnw package -DskipTests -q && docker compose up --build
-
-# Health check
-curl http://localhost:8090/api/health
-```
+Swagger UI: `http://localhost:8090/swagger-ui.html`
 
 ## How It Works
 
 The extension service runs alongside ThingsBoard and reacts to events in three ways:
 
 ```
-Pattern 1: Rule Chain Callback (API key)
+Pattern 1: HTTP Callback (rule chain or widget)
 ┌───────────────────────────┐                ┌──────────────────────────────┐
 │                           │                │                              │
-│ [Event] ──> [REST API     │   POST + JSON  │  @RestController endpoint    │
-│              Call node]   ┼───────────────>│  ThingsboardClient resolved  │
-│      X-Authorization:     │<───────────────┤  from X-Authorization header │
-│        ApiKey <key>       │  JSON response │                              │
-└───────────────────────────┘                └──────────────────────────────┘
-
-Pattern 2: Widget Callback (JWT)
-┌───────────────────────────┐                ┌──────────────────────────────┐
-│                           │                │                              │
-│  Dashboard Widget         │   POST + JSON  │  @RestController endpoint    │
-│  (HTTP datasource or      ┼───────────────>│  ThingsboardClient resolved  │
-│   custom JS fetch)        │<───────────────┤  from X-Authorization header │
+│  Rule chain REST API Call │   POST + JSON  │  @RestController endpoint    │
+│  or Dashboard Widget      ┼───────────────>│  ThingsboardClient resolved  │
+│                           │<───────────────┤  from X-Authorization header │
 │  X-Authorization:         │  JSON response │                              │
-│    Bearer ${tbAuthToken}  │                │                              │
+│    ApiKey <key>           │                │                              │
+│    or Bearer <jwt>        │                │                              │
 └───────────────────────────┘                └──────────────────────────────┘
 
-Pattern 3: Scheduled Background Job (configured credentials)
+Pattern 2: Scheduled Background Job (configured credentials)
 ┌──────────────────────────────────────────────────────────────┐
 │                                                              │
 │  @Scheduled task runs on a timer — no HTTP request          │
@@ -163,13 +145,61 @@ public class MyScheduledTask {
 
 **Note:** If neither `TB_AUTH_API_KEY` nor `TB_AUTH_USERNAME` is set, the `ThingsboardClient` bean is not created. Components that use `@ConditionalOnBean(ThingsboardClient.class)` (like the example `DeviceHealthCheckTask`) are silently skipped — the app starts normally without them.
 
-## Example 1: Billing on Device Creation
+## Example 1: Usage Tracking on Telemetry
+
+**Business need:** Count how many telemetry keys each message contains (for usage metering, logging, etc.).
+
+This is the simplest pattern — no ThingsBoard API calls needed. Just omit the `ThingsboardClient` parameter.
+
+See full code: [`UsageTrackingController.java`](src/main/java/org/thingsboard/extension/examples/UsageTrackingController.java)
+
+```java
+@RestController
+@RequestMapping("/api/extension/usage")
+public class UsageTrackingController {
+
+    @PostMapping("/on-telemetry")
+    public Map<String, Object> onTelemetry(@RequestBody JsonNode telemetry) {
+        int keyCount = telemetry.size();
+        return Map.of(
+                "status", "ok",
+                "keysReceived", keyCount,
+                "keys", iterableToList(telemetry.fieldNames())
+        );
+    }
+}
+```
+
+### Rule chain setup
+
+1. In your rule chain, add a **REST API Call** node:
+   - **Method**: `POST`
+   - **URL**: `http://localhost:8090/api/extension/usage/on-telemetry`
+   - **Headers**: `Content-Type: application/json`, `X-Authorization: ApiKey YOUR_API_KEY`
+   - **Credentials**: `Anonymous` (authentication is handled by the X-Authorization header, not the node's credential type)
+2. From the **Message Type Switch** node, connect **Post telemetry** to this node
+3. Save the rule chain
+
+### Testing
+
+```bash
+curl -X POST http://localhost:8090/api/extension/usage/on-telemetry \
+  -H 'Content-Type: application/json' \
+  -d '{"temperature": 25.5, "humidity": 60, "pressure": 1013.25}'
+```
+
+Response:
+```json
+{"status":"ok","keysReceived":3,"keys":["temperature","humidity","pressure"]}
+```
+
+## Example 2: Billing on Device Creation
 
 **Business need:** When a new device is created, mark it as billing-active by saving a server-side attribute.
 
-### Controller code
+This pattern uses `ThingsboardClient` to call ThingsBoard APIs, authenticated via the `X-Authorization` header.
 
-`src/main/java/org/thingsboard/extension/examples/BillingController.java`:
+See full code: [`BillingController.java`](src/main/java/org/thingsboard/extension/examples/BillingController.java)
 
 ```java
 @RestController
@@ -181,31 +211,26 @@ public class BillingController {
                                                ThingsboardClient tb) throws Exception {
         String deviceId = device.get("id").get("id").asText();
         String deviceName = device.get("name").asText();
+        String billingStartedAt = Instant.now().toString();
 
-        // Save a server-side attribute marking billing activation
-        String billingJson = """
-                {"billingActive": true, "billingStartedAt": "%s"}
-                """.formatted(Instant.now().toString());
-
-        tb.saveDeviceAttributes(deviceId, "SERVER_SCOPE", billingJson);
+        tb.saveDeviceAttributes(deviceId, "SERVER_SCOPE",
+                "{\"billingActive\": true, \"billingStartedAt\": \"%s\"}".formatted(billingStartedAt));
 
         return Map.of(
                 "status", "ok",
                 "deviceId", deviceId,
                 "deviceName", deviceName,
-                "billingStartedAt", Instant.now().toString()
+                "billingStartedAt", billingStartedAt
         );
     }
 }
 ```
 
-**How it works line by line:**
-
-1. `@RequestBody JsonNode device` — Spring deserializes the incoming JSON (the device data from the rule chain) into a Jackson `JsonNode`.
-2. `ThingsboardClient tb` — auto-resolved from the `X-Authorization` header. The `ThingsboardClientProvider` reads the header, creates (or returns a cached) client authenticated with that API key.
-3. `device.get("id").get("id").asText()` — extracts the device UUID from the ThingsBoard entity ID structure `{"entityType": "DEVICE", "id": "uuid"}`.
-4. `tb.saveDeviceAttributes(...)` — calls the ThingsBoard REST API to save server-side attributes on the device.
-5. Returns a JSON response — this becomes the outgoing message on the **Success** route of the REST API Call node.
+**How it works:**
+1. `ThingsboardClient tb` — auto-resolved from the `X-Authorization` header
+2. `device.get("id").get("id").asText()` — extracts the device UUID from the ThingsBoard entity ID structure `{"entityType": "DEVICE", "id": "uuid"}`
+3. `tb.saveDeviceAttributes(...)` — calls the ThingsBoard REST API to save server-side attributes
+4. The JSON response goes to the **Success** route of the REST API Call node
 
 ### Rule chain setup
 
@@ -225,71 +250,18 @@ public class BillingController {
 
 ### Testing
 
-1. Start the extension: `./mvnw spring-boot:run`
+1. Start the extension: `./run.sh`
 2. Create a device in ThingsBoard (UI or API)
 3. Open the device → **Attributes** tab → **Server attributes**
 4. Verify `billingActive: true` and `billingStartedAt` appear
-
-## Example 2: Usage Tracking on Telemetry
-
-**Business need:** Count how many telemetry keys each message contains (for usage metering, logging, etc.).
-
-### Controller code
-
-`src/main/java/org/thingsboard/extension/examples/UsageTrackingController.java`:
-
-```java
-@RestController
-@RequestMapping("/api/extension/usage")
-public class UsageTrackingController {
-
-    @PostMapping("/on-telemetry")
-    public Map<String, Object> onTelemetry(@RequestBody JsonNode telemetry) {
-        int keyCount = telemetry.size();
-
-        return Map.of(
-                "status", "ok",
-                "keysReceived", keyCount,
-                "keys", iterableToList(telemetry.fieldNames())
-        );
-    }
-}
-```
-
-**Note:** This controller does NOT declare a `ThingsboardClient` parameter — it simply processes the incoming JSON without calling ThingsBoard APIs. Just omit the parameter when you don't need it.
-
-### Rule chain setup
-
-1. In your rule chain, add a **REST API Call** node:
-   - **Method**: `POST`
-   - **URL**: `http://localhost:8090/api/extension/usage/on-telemetry`
-   - **Headers**: `Content-Type: application/json`, `X-Authorization: ApiKey YOUR_API_KEY`
-   - **Credentials**: `Anonymous`
-2. From the **Message Type Switch** node, connect **Post telemetry** to this node
-3. Save the rule chain
-
-### Testing
-
-```bash
-# Simulate what the rule chain sends
-curl -X POST http://localhost:8090/api/extension/usage/on-telemetry \
-  -H 'Content-Type: application/json' \
-  -H 'X-Authorization: ApiKey any-key-here' \
-  -d '{"temperature": 25.5, "humidity": 60, "pressure": 1013.25}'
-```
-
-Response:
-```json
-{"status":"ok","keysReceived":3,"keys":["temperature","humidity","pressure"]}
-```
 
 ## Example 3: Widget Data Endpoint
 
 **Business need:** Serve tenant statistics to a ThingsBoard dashboard widget — for example, display the total device count in a custom card widget.
 
-### Controller code
+This pattern is identical to API key controllers except the widget sends a JWT instead. The `ThingsboardClientProvider` detects the `Bearer ` prefix automatically.
 
-`src/main/java/org/thingsboard/extension/examples/WidgetDataController.java`:
+See full code: [`WidgetDataController.java`](src/main/java/org/thingsboard/extension/examples/WidgetDataController.java)
 
 ```java
 @RestController
@@ -298,17 +270,15 @@ public class WidgetDataController {
 
     @PostMapping("/current-stats")
     public Map<String, Object> currentStats(@RequestBody JsonNode params,
-                                               ThingsboardClient tb) throws Exception {
+                                            ThingsboardClient tb) throws Exception {
         PageDataDevice devices = tb.getTenantDevices(1, 0, null, null, null, null);
         return Map.of(
-            "status", "ok",
-            "totalDevices", devices.getTotalElements()
+                "status", "ok",
+                "totalDevices", devices.getTotalElements()
         );
     }
 }
 ```
-
-**How it works:** The method signature is identical to API key controllers — only the header value differs. The `ThingsboardClientProvider` detects the `Bearer ` prefix automatically and uses JWT authentication. The client is authenticated as the widget user, so API calls respect their tenant and permissions.
 
 ### Widget wiring
 
@@ -362,16 +332,12 @@ curl -X POST http://localhost:8080/api/auth/login \
 
 **Business need:** Periodically check all tenant devices and record a health check timestamp as a server attribute — without any incoming HTTP request.
 
-### Component code
-
-`src/main/java/org/thingsboard/extension/examples/DeviceHealthCheckTask.java`:
+See full code: [`DeviceHealthCheckTask.java`](src/main/java/org/thingsboard/extension/examples/DeviceHealthCheckTask.java)
 
 ```java
 @ConditionalOnBean(ThingsboardClient.class)
 @Component
 public class DeviceHealthCheckTask {
-
-    private static final Logger log = LoggerFactory.getLogger(DeviceHealthCheckTask.class);
 
     private final ThingsboardClient tb;
 
@@ -382,25 +348,23 @@ public class DeviceHealthCheckTask {
     @Scheduled(fixedRate = 60, timeUnit = TimeUnit.SECONDS)
     public void run() throws Exception {
         PageDataDevice page = tb.getTenantDevices(100, 0, null, null, null, null);
-        long total = page.getTotalElements();
-        log.info("Health check: {} devices in tenant", total);
+        log.info("Health check: {} devices in tenant", page.getTotalElements());
 
         String ts = String.valueOf(System.currentTimeMillis());
         for (var device : page.getData()) {
             String deviceId = device.getId().getId().toString();
             tb.saveDeviceAttributes(deviceId, "SERVER_SCOPE",
-                "{\"lastHealthCheckTs\": " + ts + "}");
+                    "{\"lastHealthCheckTs\": " + ts + "}");
         }
     }
 }
 ```
 
 **How it works:**
-- The `ThingsboardClient` is the background task client configured in `application.yml`
 - `@Scheduled(fixedRate = 60, timeUnit = TimeUnit.SECONDS)` triggers the method every 60 seconds
-- The method logs how many devices exist and saves a `lastHealthCheckTs` attribute to each one
-- No rule chain wiring needed — the task starts automatically when the service starts
-- If the task throws an exception, the global `SchedulingConfig` error handler logs it at ERROR level and the task continues running on the next trigger
+- The `ThingsboardClient` is configured in `application.yml`, not from an HTTP header
+- `@ConditionalOnBean` makes this task silently skip when no credentials are configured
+- Exceptions are handled by the global `SchedulingConfig` error handler — the task continues on next trigger
 
 ### Setup
 
@@ -514,15 +478,13 @@ Request/response logging is controlled by the logback level for `org.thingsboard
 
 | Event | Message Type in Rule Chain | Typical Use Case |
 |-------|---------------------------|------------------|
-| Device created | `Entity Created` (from Message Type Switch) | Provisioning, billing |
+| Device created | `Entity Created` | Provisioning, billing |
 | Device deleted | `Entity Deleted` | Cleanup, deprovisioning |
 | Telemetry received | `Post telemetry` | Usage tracking, enrichment, forwarding |
 | Attributes updated | `Attributes Updated` | Config sync, notifications |
-| Alarm created/updated | `Alarm` (from Message Type Switch) | Notifications, escalation |
+| Alarm created/updated | `Alarm Created` / `Alarm Updated` | Notifications, escalation |
 | Device activity | `Activity Event` | Monitoring, status tracking |
 | Device inactivity | `Inactivity Event` | Alerting, health checks |
-
-The exact message type constants are `ENTITY_CREATED`, `POST_TELEMETRY_REQUEST`, `ATTRIBUTES_UPDATED`, `INACTIVITY_EVENT`, and `ALARM`. Use these when writing code or rule chain scripts that check `msgType`.
 
 ### URL templates
 
