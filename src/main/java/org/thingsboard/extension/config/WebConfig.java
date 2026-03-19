@@ -15,8 +15,10 @@
  */
 package org.thingsboard.extension.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.List;
@@ -26,6 +28,9 @@ public class WebConfig implements WebMvcConfigurer {
 
     private final ThingsboardClientProvider clientProvider;
 
+    @Value("${cors.allowed-origins:}")
+    private String corsAllowedOrigins;
+
     public WebConfig(ThingsboardClientProvider clientProvider) {
         this.clientProvider = clientProvider;
     }
@@ -33,6 +38,20 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
         resolvers.add(clientProvider);
+    }
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        if (corsAllowedOrigins.isBlank()) {
+            return; // No CORS config — same-origin requests work without CORS headers
+        }
+        registry.addMapping("/**")
+                .allowedOriginPatterns(corsAllowedOrigins.split(","))
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+                .allowedHeaders("X-Authorization", "Content-Type", "Authorization",
+                                "Cache-Control", "Accept")
+                .allowCredentials(false)
+                .maxAge(3600);
     }
 
 }
