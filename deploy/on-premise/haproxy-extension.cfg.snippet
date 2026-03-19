@@ -1,0 +1,23 @@
+#---------------------------------------------------------------------------
+# ThingsBoard Extension routing
+#
+# INSERT BEFORE your existing ThingsBoard backend ACL in the frontend block.
+# HAProxy evaluates use_backend directives in order — the first match wins.
+# If the ThingsBoard catch-all ACL is above this, extension traffic goes
+# to ThingsBoard instead of the extension service.
+#
+# Requires HAProxy 2.0 or later (standard in ThingsBoard installations).
+#---------------------------------------------------------------------------
+
+# Frontend ACL (add inside your existing 'frontend' block)
+acl is_extension path_beg /api/extension/
+use_backend thingsboard_extension if is_extension
+
+# Backend block (add as a new block, alongside existing backend blocks)
+backend thingsboard_extension
+    # Replace 127.0.0.1:8090 with the host:port where your extension runs.
+    # If the extension runs in Docker on the same host, use 127.0.0.1:8090
+    # and ensure the container port is mapped to the host.
+    server extension 127.0.0.1:8090 check
+    # HAProxy forwards all headers including X-Authorization by default.
+    # OPTIONS preflight requests are routed here so Spring handles CORS.
