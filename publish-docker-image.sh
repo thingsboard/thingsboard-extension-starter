@@ -14,6 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+#
+# Pushes the Docker image to a container registry.
+#
+# Usage:
+#   ./publish-docker-image.sh
+#
+# Environment variables:
+#   IMAGE_NAME  Docker image name (default: thingsboard-extension)
+#   REGISTRY    Registry hostname prefix (optional). When set, the image
+#               is tagged as REGISTRY/IMAGE_NAME before pushing.
+#
+# Examples:
+#   # Docker Hub (no REGISTRY needed, IMAGE_NAME includes your Docker Hub user)
+#   IMAGE_NAME=myuser/thingsboard-extension ./publish-docker-image.sh
+#
+#   # Private registry
+#   REGISTRY=registry.example.com ./publish-docker-image.sh
+#
 
 set -e
 

@@ -353,7 +353,7 @@ The project includes `spring-boot-devtools`. When running with `./mvnw spring-bo
 ### Build the Docker Image
 
 ```bash
-./build-image.sh
+./build-docker-image.sh
 ```
 
 This builds the JAR and creates a Docker image tagged `thingsboard-extension:<version>` and `thingsboard-extension:latest`. The version comes from the latest git tag, or the short git SHA if no tag exists.
@@ -361,17 +361,17 @@ This builds the JAR and creates a Docker image tagged `thingsboard-extension:<ve
 To use a custom image name:
 
 ```bash
-IMAGE_NAME=myorg/thingsboard-extension ./build-image.sh
+IMAGE_NAME=myorg/thingsboard-extension ./build-docker-image.sh
 ```
 
 ### Publish to a Registry
 
 ```bash
 # Docker Hub
-IMAGE_NAME=myuser/thingsboard-extension ./publish-image.sh
+IMAGE_NAME=myuser/thingsboard-extension ./publish-docker-image.sh
 
 # Private registry
-REGISTRY=registry.example.com ./publish-image.sh
+REGISTRY=registry.example.com ./publish-docker-image.sh
 ```
 
 ### On-Premise
@@ -430,8 +430,8 @@ Deploy the extension on a VPS or any server with a public IP, connecting to Thin
 The cloud server needs to pull your image from a registry:
 
 ```bash
-./build-image.sh
-REGISTRY=registry.example.com ./publish-image.sh
+./build-docker-image.sh
+REGISTRY=registry.example.com ./publish-docker-image.sh
 ```
 
 **2. Configure environment variables**

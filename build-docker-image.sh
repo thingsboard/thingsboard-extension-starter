@@ -14,6 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+#
+# Builds a Docker image for the ThingsBoard extension service.
+#
+# Usage:
+#   ./build-docker-image.sh
+#
+# Environment variables:
+#   IMAGE_NAME  Docker image name (default: thingsboard-extension)
+#
+# The version tag comes from the latest git tag, or the short git SHA
+# if no tag exists. Two tags are created: IMAGE:VERSION and IMAGE:latest.
+#
+# Example:
+#   IMAGE_NAME=myorg/thingsboard-extension ./build-docker-image.sh
+#
 
 set -e
 
@@ -32,4 +47,4 @@ echo "Built successfully:"
 echo "  ${IMAGE}:${VERSION}"
 echo "  ${IMAGE}:latest"
 echo ""
-echo "Next step: push with ./publish-image.sh"
+echo "Next step: push with ./publish-docker-image.sh"

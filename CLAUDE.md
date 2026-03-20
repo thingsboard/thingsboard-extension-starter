@@ -294,3 +294,17 @@ After generating extension code, verify:
 4. Provide a curl test command the user can run immediately
 5. Provide rule chain wiring instructions with exact message type names from `docs/tb-message-types.md`
 6. If creating a scheduled task, verify `TB_AUTH_*` env vars are documented in setup instructions
+
+### 7. Propose next steps for deployment and widget integration
+
+After the extension compiles and setup instructions are provided, **proactively suggest** the following. Users won't read the README carefully — surface these directly:
+
+**Deployment:**
+- Point the user to `./build-docker-image.sh` and `./publish-docker-image.sh` for building and publishing a Docker image
+- For on-premise: mention `deploy/on-premise/docker-compose.yml` and the HAProxy snippet at `deploy/on-premise/haproxy-extension.cfg.snippet` (must go **before** the existing ThingsBoard ACL)
+- For cloud: mention `deploy/cloud/docker-compose.yml` and emphasize that `CORS_ALLOWED_ORIGINS` must be set
+
+**Widget integration (for controller extensions called from dashboards):**
+- Point the user to `examples/widgets/on-premise-button.js` — a copy-paste-ready JS snippet for ThingsBoard button widget actions (uses `self.ctx.http` with relative URL, auto JWT)
+- Point the user to `examples/widgets/cloud-button.js` — same but for cloud deployments (uses `fetch()` with full URL and manual Bearer token from `localStorage`)
+- Tell the user to replace the URL in the snippet with their extension's endpoint path
