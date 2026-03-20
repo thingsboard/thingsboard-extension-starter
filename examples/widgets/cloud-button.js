@@ -1,0 +1,57 @@
+/**
+ * ThingsBoard Button Widget -- Cloud Example
+ *
+ * What it does:   Calls the extension's /api/extension/widget/current-stats
+ *                 endpoint on an external host and shows the total device count
+ *                 in a popup.
+ *
+ * Widget type:    Action -- Button widget "On click" handler
+ * Where to paste: Widget -> Settings -> Actions -> "On click" -> Custom action (JS)
+ * What to customize: Change the URL below to your extension's public address
+ *                    (host and port).
+ *
+ * CORS requirement: The extension must have CORS_ALLOWED_ORIGINS set to your
+ *                   ThingsBoard Cloud origin (e.g. https://your-tb.thingsboard.cloud).
+ *                   See the extension's CORS_ALLOWED_ORIGINS environment variable.
+ */
+
+// Read the current user's JWT from browser storage.
+// NOTE: Requires authenticated dashboard. Public dashboards have no JWT -- call returns 401.
+var jwt = localStorage.getItem('jwt_token');
+
+// Full URL -- the extension runs on a separate host from ThingsBoard Cloud.
+// Change this to your extension's public address.
+var url = 'https://your-extension-host:8090/api/extension/widget/current-stats';
+
+// Use fetch() for cross-origin requests to the external extension.
+// The on-premise HTTP client (ctx.http) only works for same-origin requests.
+fetch(url, {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        // Explicit 'Bearer ' prefix required -- fetch() does not add it automatically.
+        // The on-premise HTTP client adds the prefix for you, but fetch() sends the raw value.
+        'X-Authorization': 'Bearer ' + jwt
+    },
+    // Request body -- the controller accepts any JSON. Empty object is fine.
+    body: JSON.stringify({})
+})
+.then(function(response) {
+    // Check for authentication errors before parsing the body.
+    if (response.status === 401) {
+        alert('Authentication error');
+        return;
+    }
+    // Parse the JSON response body.
+    return response.json();
+})
+.then(function(data) {
+    // data is undefined if the 401 handler above returned early.
+    if (data) {
+        alert('Total devices: ' + data.totalDevices);
+    }
+})
+.catch(function(error) {
+    // Network errors, CORS errors, or other failures.
+    alert('Error: ' + (error.message || 'Request failed'));
+});
