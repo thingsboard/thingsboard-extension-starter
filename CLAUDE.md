@@ -53,6 +53,7 @@ Ask these questions (the user can skip by providing a detailed prompt upfront):
 - **What event triggers it?** (device created, telemetry posted, alarm created, etc.) — then **read `docs/tb-message-types.md`** to find the exact message type (e.g., `ENTITY_CREATED`) and understand the JSON payload structure. You will need both when generating code and when writing rule chain setup instructions.
 - **Does it need to call ThingsBoard APIs?** (save attributes, look up devices, create alarms, etc.) — see the API docs in `target/api-docs/` (run `./mvnw generate-resources` first if the folder doesn't exist). Each `*Api.md` file lists all available methods for that controller with parameters and return types.
 - **Does it need external services?** (Slack, email, database, HTTP API) — if so, add the dependency to `pom.xml`.
+- **Will it be called from a dashboard widget?** If yes — is the ThingsBoard instance on-premise (same origin) or cloud (cross-origin)? Cross-origin (cloud) requires `CORS_ALLOWED_ORIGINS` to be set on the extension. See `deploy/cloud/.env.example`.
 - **What should it return?** The response JSON becomes the outgoing message in the rule chain (2xx = Success route, non-2xx = Failure route).
 
 ### 4. Generate the code
@@ -141,6 +142,13 @@ Run `./mvnw compile -q` after generating the code. If it fails, read the error o
 3. Connect the triggering node to this REST API Call node (specify the exact message type to filter on)
 4. The response JSON goes to the **Success** route (2xx) or **Failure** route (non-2xx)
 
+**For widget callback extensions (called from dashboard widgets):** Tell the user how to add the JS snippet to their widget. The setup differs by deployment mode:
+
+- **On-premise:** Point the user to `examples/widgets/on-premise-button.js`. The snippet uses `self.ctx.http.post()` with a relative URL — ThingsBoard automatically adds the user's JWT. Tell the user to replace the URL path with their extension's endpoint. No CORS configuration needed.
+- **Cloud:** Point the user to `examples/widgets/cloud-button.js`. The snippet uses `fetch()` with a full URL and reads the JWT from `localStorage`. Tell the user to: (1) replace the URL with their extension's public address, and (2) set `CORS_ALLOWED_ORIGINS` on the extension to their ThingsBoard Cloud origin.
+
+Setup steps: Widget -> Settings -> Actions -> "On click" -> Custom action (JS) -> paste the snippet.
+
 **For scheduled tasks:** No rule chain wiring needed. Ensure the user has configured credentials in `application.yml` (or via environment variables `TB_AUTH_API_KEY` or `TB_AUTH_USERNAME` + `TB_AUTH_PASSWORD`). The task runs automatically on the configured schedule.
 
 ## Project Conventions
@@ -156,8 +164,32 @@ Three ways to get a `ThingsboardClient`:
 For request-based flows, missing or invalid `X-Authorization` header returns 401 Unauthorized.
 
 ### File structure
+
+**Project root:**
 ```
-src/main/java/org/thingsboard/extension/
+├── build-docker-image.sh                 # Build Docker image (self-contained usage docs inside)
+├── publish-docker-image.sh               # Push image to a container registry
+├── run.sh                                # Run with Maven (requires Java 25)
+├── run-docker.sh                         # Run with Docker Compose
+├── Dockerfile                            # Multi-stage Docker build (modify to add system packages)
+├── deploy/
+│   ├── on-premise/
+│   │   ├── docker-compose.yml            # Extension container config
+│   │   ├── .env.example                  # Environment variable template
+│   │   └── haproxy-extension.cfg.snippet # HAProxy routing for /api/extension/*
+│   └── cloud/
+│       ├── docker-compose.yml            # Extension container config (no extra_hosts)
+│       └── .env.example                  # Env template (CORS_ALLOWED_ORIGINS required)
+├── examples/widgets/
+│   ├── on-premise-button.js              # Widget JS snippet (self.ctx.http, relative URL)
+│   └── cloud-button.js                   # Widget JS snippet (fetch, full URL, manual JWT)
+├── docs/
+│   └── tb-message-types.md               # ThingsBoard message types and JSON payload structures
+└── target/api-docs/                      # Generated — ThingsboardClient API docs (run mvnw generate-resources)
+```
+
+**Java source (`src/main/java/org/thingsboard/extension/`):**
+```
 ├── ThingsboardExtensionApplication.java  # Spring Boot entry point + @EnableScheduling
 ├── config/
 │   ├── ThingsboardAuthConfig.java        # Optional TB client bean for background jobs
@@ -167,7 +199,7 @@ src/main/java/org/thingsboard/extension/
 │   ├── RequestLoggingFilter.java         # Request/response logging
 │   ├── SchedulingConfig.java             # Scheduler error handling
 │   ├── ThingsboardClientProvider.java    # Client cache + argument resolver
-│   └── WebConfig.java                    # Registers the argument resolver
+│   └── WebConfig.java                    # Registers the argument resolver + CORS config
 └── examples/                             # Example controllers (can be deleted)
     ├── BillingController.java            # API key auth pattern (rule chain callback)
     ├── DeviceHealthCheckTask.java        # Scheduled background job
@@ -292,19 +324,8 @@ After generating extension code, verify:
 2. Endpoint URL starts with `/api/extension/` and doesn't conflict with existing controllers (check `/api/extension/billing/*`, `/api/extension/usage/*`, `/api/extension/widget/*`)
 3. License header is present at the top of every new Java file
 4. Provide a curl test command the user can run immediately
-5. Provide rule chain wiring instructions with exact message type names from `docs/tb-message-types.md`
-6. If creating a scheduled task, verify `TB_AUTH_*` env vars are documented in setup instructions
-
-### 7. Propose next steps for deployment and widget integration
-
-After the extension compiles and setup instructions are provided, **proactively suggest** the following. Users won't read the README carefully — surface these directly:
-
-**Deployment:**
-- Point the user to `./build-docker-image.sh` and `./publish-docker-image.sh` for building and publishing a Docker image
-- For on-premise: mention `deploy/on-premise/docker-compose.yml` and the HAProxy snippet at `deploy/on-premise/haproxy-extension.cfg.snippet` (must go **before** the existing ThingsBoard ACL)
-- For cloud: mention `deploy/cloud/docker-compose.yml` and emphasize that `CORS_ALLOWED_ORIGINS` must be set
-
-**Widget integration (for controller extensions called from dashboards):**
-- Point the user to `examples/widgets/on-premise-button.js` — a copy-paste-ready JS snippet for ThingsBoard button widget actions (uses `self.ctx.http` with relative URL, auto JWT)
-- Point the user to `examples/widgets/cloud-button.js` — same but for cloud deployments (uses `fetch()` with full URL and manual Bearer token from `localStorage`)
-- Tell the user to replace the URL in the snippet with their extension's endpoint path
+5. Provide setup instructions: rule chain wiring (with exact message type names from `docs/tb-message-types.md`), or widget JS snippet setup, or scheduled task env vars — whichever applies per step 6
+6. Propose deployment next steps — users won't read the README carefully, so surface these directly:
+   - Point to `./build-docker-image.sh` and `./publish-docker-image.sh` for building and publishing a Docker image
+   - For on-premise: mention `deploy/on-premise/docker-compose.yml` and the HAProxy snippet at `deploy/on-premise/haproxy-extension.cfg.snippet` (must go **before** the existing ThingsBoard ACL)
+   - For cloud: mention `deploy/cloud/docker-compose.yml` and emphasize that `CORS_ALLOWED_ORIGINS` must be set
