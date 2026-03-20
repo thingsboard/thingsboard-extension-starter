@@ -348,6 +348,133 @@ The project includes `spring-boot-devtools`. When running with `./mvnw spring-bo
 2. Run `./mvnw compile -q` in a separate terminal
 3. The service auto-restarts in ~2 seconds
 
+## Deployment
+
+### Build the Docker Image
+
+```bash
+./build-image.sh
+```
+
+This builds the JAR and creates a Docker image tagged `thingsboard-extension:<version>` and `thingsboard-extension:latest`. The version comes from the latest git tag, or the short git SHA if no tag exists.
+
+To use a custom image name:
+
+```bash
+IMAGE_NAME=myorg/thingsboard-extension ./build-image.sh
+```
+
+### Publish to a Registry
+
+```bash
+# Docker Hub
+IMAGE_NAME=myuser/thingsboard-extension ./publish-image.sh
+
+# Private registry
+REGISTRY=registry.example.com ./publish-image.sh
+```
+
+### On-Premise
+
+Deploy the extension alongside your existing ThingsBoard installation.
+
+**1. Configure environment variables**
+
+```bash
+cd deploy/on-premise
+cp .env.example .env
+# Edit .env — set IMAGE_NAME if you published to a registry
+```
+
+**2. Start the extension**
+
+```bash
+docker compose up -d
+```
+
+The extension connects to ThingsBoard at `http://host.docker.internal:8080` by default. Change `THINGSBOARD_URL` in `.env` if your ThingsBoard runs on a different host or port.
+
+**3. Add HAProxy routing**
+
+Open your HAProxy configuration and add the contents of `deploy/on-premise/haproxy-extension.cfg.snippet` to your `frontend` section. Insert it **before** your existing ThingsBoard backend ACL — HAProxy evaluates rules in order and the first match wins.
+
+```
+# Add BEFORE the existing ThingsBoard ACL
+acl is_extension path_beg /api/extension/
+use_backend thingsboard_extension if is_extension
+```
+
+Add the backend block alongside your existing backends:
+
+```
+backend thingsboard_extension
+    server extension 127.0.0.1:8090 check
+```
+
+Reload HAProxy to apply changes.
+
+**4. Verify**
+
+```bash
+curl http://your-thingsboard-host/api/health
+```
+
+Expected response: `{"status":"UP"}`
+
+### Cloud
+
+Deploy the extension on a VPS or any server with a public IP, connecting to ThingsBoard Cloud.
+
+**1. Build and push the image to a registry**
+
+The cloud server needs to pull your image from a registry:
+
+```bash
+./build-image.sh
+REGISTRY=registry.example.com ./publish-image.sh
+```
+
+**2. Configure environment variables**
+
+On the cloud server:
+
+```bash
+cd deploy/cloud
+cp .env.example .env
+```
+
+Edit `.env` and set:
+- `IMAGE_NAME` — the full image name including registry prefix (e.g., `registry.example.com/thingsboard-extension`)
+- `THINGSBOARD_URL` — your ThingsBoard Cloud URL (default: `https://thingsboard.cloud`)
+- `CORS_ALLOWED_ORIGINS` — **required** — the origin of your ThingsBoard Cloud instance (e.g., `https://thingsboard.cloud`). Without this, browser widget calls are blocked by CORS.
+
+**3. Start the extension**
+
+```bash
+docker compose up -d
+```
+
+**4. Verify CORS**
+
+Test that preflight requests succeed (run this from any machine):
+
+```bash
+curl -s -o /dev/null -w "%{http_code}" \
+  -X OPTIONS https://your-extension-host:8090/api/extension/widget/current-stats \
+  -H "Origin: https://thingsboard.cloud" \
+  -H "Access-Control-Request-Method: POST"
+```
+
+Expected: `200`
+
+**5. Verify the health endpoint**
+
+```bash
+curl https://your-extension-host:8090/api/health
+```
+
+Expected response: `{"status":"UP"}`
+
 ## Configuration Reference
 
 ### `application.yml`
