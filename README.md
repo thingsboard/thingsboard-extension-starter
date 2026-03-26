@@ -422,7 +422,7 @@ Reload HAProxy to apply changes.
 **4. Verify**
 
 ```bash
-curl http://your-thingsboard-host/api/health
+curl http://localhost:8090/api/health
 ```
 
 Expected response: `{"status":"UP"}`
@@ -466,7 +466,7 @@ Test that preflight requests succeed (run this from any machine):
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}" \
-  -X OPTIONS https://your-extension-host:8090/api/extension/widget/current-stats \
+  -X OPTIONS https://your-extension-host:8090/api/health \
   -H "Origin: https://thingsboard.cloud" \
   -H "Access-Control-Request-Method: POST"
 ```
@@ -506,6 +506,7 @@ Request/response logging is controlled by the logback level for `org.thingsboard
 | `TB_AUTH_API_KEY` | _(empty)_ | API key for the shared ThingsboardClient bean (takes precedence over username+password) |
 | `TB_AUTH_USERNAME` | _(empty)_ | Username for the shared ThingsboardClient bean |
 | `TB_AUTH_PASSWORD` | _(empty)_ | Password for the shared ThingsboardClient bean |
+| `CORS_ALLOWED_ORIGINS` | _(empty)_ | Comma-separated allowed origins for CORS (required for cloud deployments) |
 | `JAVA_OPTS` | _(empty)_ | JVM options |
 
 ### Headers

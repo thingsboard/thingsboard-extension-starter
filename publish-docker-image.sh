@@ -47,6 +47,11 @@ else
     REMOTE="${IMAGE}"  # Docker Hub: no prefix required
 fi
 
+if ! docker image inspect "${IMAGE}:${VERSION}" > /dev/null 2>&1; then
+    echo "Error: Image ${IMAGE}:${VERSION} not found. Run ./build-docker-image.sh first."
+    exit 1
+fi
+
 docker tag "${IMAGE}:${VERSION}" "${REMOTE}:${VERSION}"
 docker tag "${IMAGE}:latest" "${REMOTE}:latest"
 

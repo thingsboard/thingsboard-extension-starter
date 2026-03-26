@@ -21,6 +21,7 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -46,7 +47,9 @@ public class WebConfig implements WebMvcConfigurer {
             return; // No CORS config — same-origin requests work without CORS headers
         }
         registry.addMapping("/**")
-                .allowedOriginPatterns(corsAllowedOrigins.split(","))
+                .allowedOriginPatterns(Arrays.stream(corsAllowedOrigins.split(","))
+                        .map(String::trim)
+                        .toArray(String[]::new))
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
                 .allowedHeaders("X-Authorization", "Content-Type", "Authorization",
                                 "Cache-Control", "Accept")
