@@ -41,4 +41,4 @@ jobs:
           cache: maven
 
       - name: Build
-        run: ./mvnw -B --no-transfer-progress package
+        run: ./mvnw -B --no-transfer-progress clean license:check package

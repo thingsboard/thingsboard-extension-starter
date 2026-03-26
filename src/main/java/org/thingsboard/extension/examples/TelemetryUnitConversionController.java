@@ -35,7 +35,7 @@ import java.util.function.DoubleUnaryOperator;
  * Wire this in ThingsBoard:
  *   Rule Chain → REST API Call node
  *   POST http://localhost:8090/api/extension/transform/telemetry
- *   Headers: Content-Type: application/json, X-Authorization: ApiKey YOUR_API_KEY
+ *   Headers: Content-Type: application/json
  *
  * Trigger: "Post telemetry" message type in the rule chain.
  * Input: the telemetry JSON from msg.getData(), e.g. {"temperature_f": 77.0, "pressure_psi": 14.7}.

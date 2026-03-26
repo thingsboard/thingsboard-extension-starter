@@ -39,7 +39,7 @@ set -e
 cd "$(dirname "$0")"
 
 IMAGE="${IMAGE_NAME:-thingsboard-extension}"
-VERSION=$(git describe --tags --abbrev=0 2>/dev/null || git rev-parse --short HEAD)
+VERSION=${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null || git rev-parse --short HEAD)}
 
 if [ -n "${REGISTRY}" ]; then
     REMOTE="${REGISTRY}/${IMAGE}"

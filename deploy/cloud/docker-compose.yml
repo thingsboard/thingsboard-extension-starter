@@ -29,5 +29,5 @@ services:
       TB_AUTH_PASSWORD: ${TB_AUTH_PASSWORD:-}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}  # Required for cloud — no default
     volumes:
-      - ./config:/config
+      - ./config:/config  # Optional: place logback.xml here to override default logging
     # ThingsBoard Cloud is a public HTTPS URL — no host networking needed

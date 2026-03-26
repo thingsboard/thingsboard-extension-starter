@@ -23,11 +23,11 @@ cd thingsboard-extension-starter
 # 2. (Optional) Set your ThingsBoard URL in src/main/resources/application.yml
 #    Default: http://localhost:8080
 
-# 3. Run with Java
-./run.sh
-
-# Or run with Docker
+# 3. Run with Docker (recommended)
 ./run-docker.sh
+
+# Or run with Java (requires Java 25)
+./run.sh
 
 # 4. Test it
 curl -X POST http://localhost:8090/api/extension/transform/telemetry \
@@ -174,7 +174,7 @@ public class TelemetryUnitConversionController {
 }
 ```
 
-Edit the `RULES` map to add your own conversions — each entry maps an input key to an output key + formula.
+Edit the `RULES` map to add your own conversions — each entry maps an input key to an output key + formula. Keys without a matching rule pass through unchanged (e.g., `"voltage": 3.3` stays as-is).
 
 ### Testing
 
@@ -228,6 +228,18 @@ public class BillingController {
 3. `tb.saveDeviceAttributes(...)` — calls the ThingsBoard REST API to save server-side attributes
 4. Returns a JSON response — 2xx goes to the Success route, non-2xx to the Failure route
 
+### Testing
+
+```bash
+# Replace YOUR_API_KEY with a real API key (ThingsBoard UI → API Keys)
+curl -X POST http://localhost:8090/api/extension/billing/on-device-created \
+  -H 'Content-Type: application/json' \
+  -H 'X-Authorization: ApiKey YOUR_API_KEY' \
+  -d '{"id":{"id":"any-device-uuid","entityType":"DEVICE"},"name":"Test Device"}'
+```
+
+> Without a valid API key, this returns 401. With a valid key but invalid device ID, it returns a ThingsBoard API error — both confirm the extension is running and processing requests.
+
 ## Example 3: Tenant Report (Widget Button)
 
 **Business need:** Add a "Generate Report" button to a dashboard that counts all devices, assets, and users in the tenant.
@@ -265,6 +277,18 @@ public class TenantReportController {
     }
 }
 ```
+
+### Testing
+
+```bash
+# Replace YOUR_JWT with a valid ThingsBoard JWT (from browser localStorage or /api/auth/login)
+curl -X POST http://localhost:8090/api/extension/report/generate \
+  -H 'Content-Type: application/json' \
+  -H 'X-Authorization: Bearer YOUR_JWT' \
+  -d '{}'
+```
+
+> Without a valid JWT, this returns 401.
 
 ## Example 4: Scheduled Health Check
 
@@ -360,6 +384,8 @@ Claude will:
 3. Add a method annotated with `@Scheduled`
 4. Set `TB_AUTH_API_KEY` (or username+password) before starting the service
 
+**Need extra libraries?** (Slack SDK, email, database driver, etc.) Add a `<dependency>` block to `pom.xml` inside the `<dependencies>` section — follow the pattern of the existing entries.
+
 ### Hot Reload (development)
 
 The project includes `spring-boot-devtools`. When running with `./mvnw spring-boot:run`:
@@ -440,6 +466,8 @@ curl http://localhost:8090/api/health
 
 Expected response: `{"status":"UP"}`
 
+> **Tip:** The default log level is DEBUG, which is verbose. For production, place a custom `logback.xml` in the `config/` directory with `<logger name="org.thingsboard.extension" level="INFO"/>`.
+
 ### Cloud
 
 Deploy the extension on a VPS or any server with a public IP, connecting to ThingsBoard Cloud.
@@ -493,6 +521,8 @@ curl https://your-extension-host:8090/api/health
 ```
 
 Expected response: `{"status":"UP"}`
+
+> **Tip:** The default log level is DEBUG, which is verbose. For production, place a custom `logback.xml` in the `config/` directory with `<logger name="org.thingsboard.extension" level="INFO"/>`.
 
 ## Configuration Reference
 

@@ -122,7 +122,7 @@ public class YourScheduledTask {
 ```
 
 - The `ThingsboardClient` bean uses credentials from `application.yml` (`thingsboard.auth.*`).
-- Use `@ConditionalOnBean(ThingsboardClient.class)` so the task is silently skipped when no credentials are configured.
+- Use `@ConditionalOnBean(ThingsboardClient.class)` so the task is silently skipped when no credentials are configured. Without this annotation, the app fails at startup with a Spring dependency injection error when no credentials are set.
 - Do NOT wrap `@Scheduled` methods in try-catch -- the global `ErrorHandler` in `SchedulingConfig` handles exceptions.
 
 ### 5. Verify the code compiles
@@ -171,7 +171,7 @@ For request-based flows, missing or invalid `X-Authorization` header returns 401
 ├── publish-docker-image.sh               # Push image to a container registry
 ├── run.sh                                # Run with Maven (requires Java 25)
 ├── run-docker.sh                         # Run with Docker Compose
-├── Dockerfile                            # Multi-stage Docker build (modify to add system packages)
+├── Dockerfile                            # Docker image (requires JAR built by build-docker-image.sh)
 ├── deploy/
 │   ├── on-premise/
 │   │   ├── docker-compose.yml            # Extension container config

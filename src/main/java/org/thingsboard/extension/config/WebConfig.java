@@ -51,8 +51,7 @@ public class WebConfig implements WebMvcConfigurer {
                         .map(String::trim)
                         .toArray(String[]::new))
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
-                .allowedHeaders("X-Authorization", "Content-Type", "Authorization",
-                                "Cache-Control", "Accept")
+                .allowedHeaders("*")
                 .allowCredentials(false)
                 .maxAge(3600);
     }
