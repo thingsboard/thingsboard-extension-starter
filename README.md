@@ -30,14 +30,14 @@ cd thingsboard-extension-starter
 ./run-docker.sh
 
 # 4. Test it
-curl -X POST http://localhost:8090/api/extension/usage/on-telemetry \
+curl -X POST http://localhost:8090/api/extension/transform/telemetry \
   -H 'Content-Type: application/json' \
-  -d '{"temperature": 25.5, "humidity": 60}'
+  -d '{"temperature_f": 77.0, "pressure_psi": 14.7}'
 ```
 
 Response:
 ```json
-{"status":"ok","keysReceived":2,"keys":["temperature","humidity"]}
+{"temperature_c":25.0,"pressure_bar":1.01}
 ```
 
 Health check: `curl http://localhost:8090/api/health`
@@ -145,42 +145,48 @@ public class MyScheduledTask {
 
 **Note:** If neither `TB_AUTH_API_KEY` nor `TB_AUTH_USERNAME` is set, the `ThingsboardClient` bean is not created. Components that use `@ConditionalOnBean(ThingsboardClient.class)` (like the example `DeviceHealthCheckTask`) are silently skipped — the app starts normally without them.
 
-## Example 1: Usage Tracking on Telemetry
+> **Note:** The examples below are intentionally simple — they exist to demonstrate extension patterns (no-auth, API key auth, JWT auth, scheduled), not to solve real problems. For instance, unit conversion is easily done in a ThingsBoard rule chain script node. Replace them with your own business logic.
 
-**Business need:** Count how many telemetry keys each message contains (for usage metering, logging, etc.).
+## Example 1: Telemetry Unit Conversion
+
+**Business need:** Convert telemetry values between units (°F→°C, psi→bar, etc.) before storing them.
 
 This is the simplest pattern — no ThingsBoard API calls needed. Just omit the `ThingsboardClient` parameter.
 
-See full code: [`UsageTrackingController.java`](src/main/java/org/thingsboard/extension/examples/UsageTrackingController.java)
+See full code: [`TelemetryUnitConversionController.java`](src/main/java/org/thingsboard/extension/examples/TelemetryUnitConversionController.java)
 
 ```java
 @RestController
-@RequestMapping("/api/extension/usage")
-public class UsageTrackingController {
+@RequestMapping("/api/extension/transform")
+public class TelemetryUnitConversionController {
 
-    @PostMapping("/on-telemetry")
-    public Map<String, Object> onTelemetry(@RequestBody JsonNode telemetry) {
-        int keyCount = telemetry.size();
-        return Map.of(
-                "status", "ok",
-                "keysReceived", keyCount,
-                "keys", iterableToList(telemetry.fieldNames())
-        );
+    private static final Map<String, Rule> RULES = Map.of(
+            "temperature_f", new Rule("temperature_c", f -> (f - 32) * 5.0 / 9.0),
+            "pressure_psi",  new Rule("pressure_bar",  psi -> psi * 0.0689476)
+    );
+
+    @PostMapping("/telemetry")
+    public Map<String, Object> transformTelemetry(@RequestBody ObjectNode telemetry) {
+        // For each key, apply the matching rule (or pass through unchanged)
     }
+
+    private record Rule(String outputKey, DoubleUnaryOperator convert) {}
 }
 ```
+
+Edit the `RULES` map to add your own conversions — each entry maps an input key to an output key + formula.
 
 ### Testing
 
 ```bash
-curl -X POST http://localhost:8090/api/extension/usage/on-telemetry \
+curl -X POST http://localhost:8090/api/extension/transform/telemetry \
   -H 'Content-Type: application/json' \
-  -d '{"temperature": 25.5, "humidity": 60, "pressure": 1013.25}'
+  -d '{"temperature_f": 77.0, "pressure_psi": 14.7}'
 ```
 
 Response:
 ```json
-{"status":"ok","keysReceived":3,"keys":["temperature","humidity","pressure"]}
+{"temperature_c":25.0,"pressure_bar":1.01}
 ```
 
 ## Example 2: Billing on Device Creation

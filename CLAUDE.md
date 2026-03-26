@@ -203,7 +203,7 @@ For request-based flows, missing or invalid `X-Authorization` header returns 401
 └── examples/                             # Example controllers (can be deleted)
     ├── BillingController.java            # API key auth pattern (rule chain callback)
     ├── DeviceHealthCheckTask.java        # Scheduled background job
-    ├── UsageTrackingController.java      # No-auth pattern (no TB client needed)
+    ├── TelemetryUnitConversionController.java  # No-auth pattern (no TB client needed)
     └── WidgetDataController.java         # JWT auth pattern (widget callback)
 ```
 
@@ -321,7 +321,7 @@ Health check: `curl http://localhost:8090/api/health`
 After generating extension code, verify:
 
 1. `./mvnw compile -q` succeeds
-2. Endpoint URL starts with `/api/extension/` and doesn't conflict with existing controllers (check `/api/extension/billing/*`, `/api/extension/usage/*`, `/api/extension/widget/*`)
+2. Endpoint URL starts with `/api/extension/` and doesn't conflict with existing controllers (check `/api/extension/billing/*`, `/api/extension/transform/*`, `/api/extension/widget/*`)
 3. License header is present at the top of every new Java file
 4. Provide a curl test command the user can run immediately
 5. Provide setup instructions: rule chain wiring (with exact message type names from `docs/tb-message-types.md`), or widget JS snippet setup, or scheduled task env vars — whichever applies per step 6
