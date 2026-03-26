@@ -52,9 +52,9 @@ fetch(url, {
     body: JSON.stringify({})
 })
 .then(function(response) {
-    // Check for authentication errors before parsing the body.
-    if (response.status === 401) {
-        alert('Authentication error');
+    // Check for errors before parsing the body.
+    if (!response.ok) {
+        alert('Error: ' + response.status);
         return;
     }
     // Parse the JSON response body.
