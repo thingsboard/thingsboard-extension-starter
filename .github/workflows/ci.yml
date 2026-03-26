@@ -41,4 +41,4 @@ jobs:
           cache: maven
 
       - name: Build
-        run: ./mvnw -B package
+        run: ./mvnw -B --no-transfer-progress package
