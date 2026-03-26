@@ -23,21 +23,21 @@ cd thingsboard-extension-starter
 # 2. (Optional) Set your ThingsBoard URL in src/main/resources/application.yml
 #    Default: http://localhost:8080
 
-# 3. Run with Java
-./run.sh
-
-# Or run with Docker
+# 3. Run with Docker (recommended)
 ./run-docker.sh
 
+# Or run with Java (requires Java 25)
+./run.sh
+
 # 4. Test it
-curl -X POST http://localhost:8090/api/extension/usage/on-telemetry \
+curl -X POST http://localhost:8090/api/extension/transform/telemetry \
   -H 'Content-Type: application/json' \
-  -d '{"temperature": 25.5, "humidity": 60}'
+  -d '{"temperature_f": 77.0, "pressure_psi": 14.7}'
 ```
 
 Response:
 ```json
-{"status":"ok","keysReceived":2,"keys":["temperature","humidity"]}
+{"temperature_c":25.0,"pressure_bar":1.01}
 ```
 
 Health check: `curl http://localhost:8090/api/health`
@@ -145,42 +145,48 @@ public class MyScheduledTask {
 
 **Note:** If neither `TB_AUTH_API_KEY` nor `TB_AUTH_USERNAME` is set, the `ThingsboardClient` bean is not created. Components that use `@ConditionalOnBean(ThingsboardClient.class)` (like the example `DeviceHealthCheckTask`) are silently skipped — the app starts normally without them.
 
-## Example 1: Usage Tracking on Telemetry
+> **Note:** The examples below are intentionally simple — they exist to demonstrate extension patterns (no-auth, API key auth, JWT auth, scheduled), not to solve real problems. For instance, unit conversion is easily done in a ThingsBoard rule chain script node. Replace them with your own business logic.
 
-**Business need:** Count how many telemetry keys each message contains (for usage metering, logging, etc.).
+## Example 1: Telemetry Unit Conversion
+
+**Business need:** Convert telemetry values between units (°F→°C, psi→bar, etc.) before storing them.
 
 This is the simplest pattern — no ThingsBoard API calls needed. Just omit the `ThingsboardClient` parameter.
 
-See full code: [`UsageTrackingController.java`](src/main/java/org/thingsboard/extension/examples/UsageTrackingController.java)
+See full code: [`TelemetryUnitConversionController.java`](src/main/java/org/thingsboard/extension/examples/TelemetryUnitConversionController.java)
 
 ```java
 @RestController
-@RequestMapping("/api/extension/usage")
-public class UsageTrackingController {
+@RequestMapping("/api/extension/transform")
+public class TelemetryUnitConversionController {
 
-    @PostMapping("/on-telemetry")
-    public Map<String, Object> onTelemetry(@RequestBody JsonNode telemetry) {
-        int keyCount = telemetry.size();
-        return Map.of(
-                "status", "ok",
-                "keysReceived", keyCount,
-                "keys", iterableToList(telemetry.fieldNames())
-        );
+    private static final Map<String, Rule> RULES = Map.of(
+            "temperature_f", new Rule("temperature_c", f -> (f - 32) * 5.0 / 9.0),
+            "pressure_psi",  new Rule("pressure_bar",  psi -> psi * 0.0689476)
+    );
+
+    @PostMapping("/telemetry")
+    public Map<String, Object> transformTelemetry(@RequestBody ObjectNode telemetry) {
+        // For each key, apply the matching rule (or pass through unchanged)
     }
+
+    private record Rule(String outputKey, DoubleUnaryOperator convert) {}
 }
 ```
+
+Edit the `RULES` map to add your own conversions — each entry maps an input key to an output key + formula. Keys without a matching rule pass through unchanged (e.g., `"voltage": 3.3` stays as-is).
 
 ### Testing
 
 ```bash
-curl -X POST http://localhost:8090/api/extension/usage/on-telemetry \
+curl -X POST http://localhost:8090/api/extension/transform/telemetry \
   -H 'Content-Type: application/json' \
-  -d '{"temperature": 25.5, "humidity": 60, "pressure": 1013.25}'
+  -d '{"temperature_f": 77.0, "pressure_psi": 14.7}'
 ```
 
 Response:
 ```json
-{"status":"ok","keysReceived":3,"keys":["temperature","humidity","pressure"]}
+{"temperature_c":25.0,"pressure_bar":1.01}
 ```
 
 ## Example 2: Billing on Device Creation
@@ -222,30 +228,67 @@ public class BillingController {
 3. `tb.saveDeviceAttributes(...)` — calls the ThingsBoard REST API to save server-side attributes
 4. Returns a JSON response — 2xx goes to the Success route, non-2xx to the Failure route
 
-## Example 3: Widget Data Endpoint
+### Testing
 
-**Business need:** Serve tenant statistics to a ThingsBoard dashboard widget — for example, display the total device count in a custom card widget.
+```bash
+# Replace YOUR_API_KEY with a real API key (ThingsBoard UI → API Keys)
+curl -X POST http://localhost:8090/api/extension/billing/on-device-created \
+  -H 'Content-Type: application/json' \
+  -H 'X-Authorization: ApiKey YOUR_API_KEY' \
+  -d '{"id":{"id":"any-device-uuid","entityType":"DEVICE"},"name":"Test Device"}'
+```
+
+> Without a valid API key, this returns 401. With a valid key but invalid device ID, it returns a ThingsBoard API error — both confirm the extension is running and processing requests.
+
+## Example 3: Tenant Report (Widget Button)
+
+**Business need:** Add a "Generate Report" button to a dashboard that counts all devices, assets, and users in the tenant.
 
 This pattern is identical to API key controllers except the widget sends a JWT instead. The `ThingsboardClientProvider` detects the `Bearer ` prefix automatically.
 
-See full code: [`WidgetDataController.java`](src/main/java/org/thingsboard/extension/examples/WidgetDataController.java)
+See full code: [`TenantReportController.java`](src/main/java/org/thingsboard/extension/examples/TenantReportController.java)
 
 ```java
 @RestController
-@RequestMapping("/api/extension/widget")
-public class WidgetDataController {
+@RequestMapping("/api/extension/report")
+public class TenantReportController {
 
-    @PostMapping("/current-stats")
-    public Map<String, Object> currentStats(@RequestBody JsonNode params,
-                                            ThingsboardClient tb) throws Exception {
-        PageDataDevice devices = tb.getTenantDevices(1, 0, null, null, null, null);
+    @PostMapping("/generate")
+    public Map<String, Object> generate(@RequestBody JsonNode params,
+                                        ThingsboardClient tb) throws Exception {
+        long totalDevices = countEntities(tb, EntityType.DEVICE);
+        long totalAssets = countEntities(tb, EntityType.ASSET);
+        long totalUsers = countEntities(tb, EntityType.USER);
+
         return Map.of(
                 "status", "ok",
-                "totalDevices", devices.getTotalElements()
+                "totalDevices", totalDevices,
+                "totalAssets", totalAssets,
+                "totalUsers", totalUsers
         );
+    }
+
+    private long countEntities(ThingsboardClient tb, EntityType entityType) throws Exception {
+        EntityTypeFilter filter = new EntityTypeFilter();
+        filter.setEntityType(entityType);
+        EntityCountQuery query = new EntityCountQuery();
+        query.setEntityFilter(filter);
+        return tb.countEntitiesByQuery(query);
     }
 }
 ```
+
+### Testing
+
+```bash
+# Replace YOUR_JWT with a valid ThingsBoard JWT (from browser localStorage or /api/auth/login)
+curl -X POST http://localhost:8090/api/extension/report/generate \
+  -H 'Content-Type: application/json' \
+  -H 'X-Authorization: Bearer YOUR_JWT' \
+  -d '{}'
+```
+
+> Without a valid JWT, this returns 401.
 
 ## Example 4: Scheduled Health Check
 
@@ -341,12 +384,145 @@ Claude will:
 3. Add a method annotated with `@Scheduled`
 4. Set `TB_AUTH_API_KEY` (or username+password) before starting the service
 
+**Need extra libraries?** (Slack SDK, email, database driver, etc.) Add a `<dependency>` block to `pom.xml` inside the `<dependencies>` section — follow the pattern of the existing entries.
+
 ### Hot Reload (development)
 
 The project includes `spring-boot-devtools`. When running with `./mvnw spring-boot:run`:
 1. Make your code changes
 2. Run `./mvnw compile -q` in a separate terminal
 3. The service auto-restarts in ~2 seconds
+
+## Deployment
+
+### Build the Docker Image
+
+```bash
+./build-docker-image.sh
+```
+
+This builds the JAR and creates a Docker image tagged `thingsboard-extension:<version>` and `thingsboard-extension:latest`. The version comes from the latest git tag, or the short git SHA if no tag exists.
+
+To use a custom image name:
+
+```bash
+IMAGE_NAME=myorg/thingsboard-extension ./build-docker-image.sh
+```
+
+### Publish to a Registry
+
+```bash
+# Docker Hub
+IMAGE_NAME=myuser/thingsboard-extension ./publish-docker-image.sh
+
+# Private registry
+REGISTRY=registry.example.com ./publish-docker-image.sh
+```
+
+### On-Premise
+
+Deploy the extension alongside your existing ThingsBoard installation.
+
+**1. Configure environment variables**
+
+```bash
+cd deploy/on-premise
+cp .env.example .env
+# Edit .env — set IMAGE_NAME if you published to a registry
+```
+
+**2. Start the extension**
+
+```bash
+docker compose up -d
+```
+
+The extension connects to ThingsBoard at `http://host.docker.internal:8080` by default. Change `THINGSBOARD_URL` in `.env` if your ThingsBoard runs on a different host or port.
+
+**3. Add HAProxy routing**
+
+Open your HAProxy configuration and add the contents of `deploy/on-premise/haproxy-extension.cfg.snippet` to your `frontend` section. Insert it **before** your existing ThingsBoard backend ACL — HAProxy evaluates rules in order and the first match wins.
+
+```
+# Add BEFORE the existing ThingsBoard ACL
+acl is_extension path_beg /api/extension/
+use_backend thingsboard_extension if is_extension
+```
+
+Add the backend block alongside your existing backends:
+
+```
+backend thingsboard_extension
+    server extension 127.0.0.1:8090 check
+```
+
+Reload HAProxy to apply changes.
+
+**4. Verify**
+
+```bash
+curl http://localhost:8090/api/health
+```
+
+Expected response: `{"status":"UP"}`
+
+> **Tip:** The default log level is DEBUG, which is verbose. For production, place a custom `logback.xml` in the `config/` directory with `<logger name="org.thingsboard.extension" level="INFO"/>`.
+
+### Cloud
+
+Deploy the extension on a VPS or any server with a public IP, connecting to ThingsBoard Cloud.
+
+**1. Build and push the image to a registry**
+
+The cloud server needs to pull your image from a registry:
+
+```bash
+./build-docker-image.sh
+REGISTRY=registry.example.com ./publish-docker-image.sh
+```
+
+**2. Configure environment variables**
+
+On the cloud server:
+
+```bash
+cd deploy/cloud
+cp .env.example .env
+```
+
+Edit `.env` and set:
+- `IMAGE_NAME` — the full image name including registry prefix (e.g., `registry.example.com/thingsboard-extension`)
+- `THINGSBOARD_URL` — your ThingsBoard Cloud URL (default: `https://thingsboard.cloud`)
+- `CORS_ALLOWED_ORIGINS` — **required** — the origin of your ThingsBoard Cloud instance (e.g., `https://thingsboard.cloud`). Without this, browser widget calls are blocked by CORS.
+
+**3. Start the extension**
+
+```bash
+docker compose up -d
+```
+
+**4. Verify CORS**
+
+Test that preflight requests succeed (run this from any machine):
+
+```bash
+curl -s -o /dev/null -w "%{http_code}" \
+  -X OPTIONS https://your-extension-host:8090/api/health \
+  -H "Origin: https://thingsboard.cloud" \
+  -H "Access-Control-Request-Method: POST"
+```
+
+Expected: `200`
+
+**5. Verify the health endpoint**
+
+```bash
+curl https://your-extension-host:8090/api/health
+```
+
+Expected response: `{"status":"UP"}`
+
+> **Tip:** The default log level is DEBUG, which is verbose. For production, place a custom `logback.xml` in the `config/` directory with `<logger name="org.thingsboard.extension" level="INFO"/>`.
 
 ## Configuration Reference
 
@@ -373,6 +549,7 @@ Request/response logging is controlled by the logback level for `org.thingsboard
 | `TB_AUTH_API_KEY` | _(empty)_ | API key for the shared ThingsboardClient bean (takes precedence over username+password) |
 | `TB_AUTH_USERNAME` | _(empty)_ | Username for the shared ThingsboardClient bean |
 | `TB_AUTH_PASSWORD` | _(empty)_ | Password for the shared ThingsboardClient bean |
+| `CORS_ALLOWED_ORIGINS` | _(empty)_ | Comma-separated allowed origins for CORS (required for cloud deployments) |
 | `JAVA_OPTS` | _(empty)_ | JVM options |
 
 ### Headers

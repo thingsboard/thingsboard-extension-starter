@@ -48,6 +48,8 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         }
 
         long start = System.currentTimeMillis();
+        // Note: ContentCachingResponseWrapper buffers the full response in memory.
+        // For large responses, consider disabling debug logging in production.
         ContentCachingResponseWrapper wrappedResponse = new ContentCachingResponseWrapper(response);
 
         try {

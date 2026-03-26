@@ -15,6 +15,7 @@
  */
 package org.thingsboard.extension.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -27,6 +28,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -53,8 +55,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
+        log.error("Unexpected error", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(errorBody(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage()));
+                .body(errorBody(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error"));
     }
 
     private Map<String, Object> errorBody(HttpStatus status, String message) {

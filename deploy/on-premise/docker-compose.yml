@@ -17,8 +17,8 @@
 services:
   extension:
     container_name: thingsboard-extension
-    image: thingsboard-extension
-    build: .
+    image: ${IMAGE_NAME:-thingsboard-extension}
+    restart: unless-stopped
     ports:
       - "${SERVER_PORT:-8090}:8090"
     environment:

@@ -19,6 +19,12 @@ set -e
 
 cd "$(dirname "$0")"
 
+if ! docker info > /dev/null 2>&1; then
+    echo "Error: Docker is not running. Start Docker Desktop and try again."
+    exit 1
+fi
+
+echo "Building JAR and starting Docker container..."
 ./mvnw package -DskipTests -q
 docker compose up --build -d
 docker compose logs -f
