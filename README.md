@@ -228,27 +228,40 @@ public class BillingController {
 3. `tb.saveDeviceAttributes(...)` — calls the ThingsBoard REST API to save server-side attributes
 4. Returns a JSON response — 2xx goes to the Success route, non-2xx to the Failure route
 
-## Example 3: Widget Data Endpoint
+## Example 3: Tenant Report (Widget Button)
 
-**Business need:** Serve tenant statistics to a ThingsBoard dashboard widget — for example, display the total device count in a custom card widget.
+**Business need:** Add a "Generate Report" button to a dashboard that counts all devices, assets, and users in the tenant.
 
 This pattern is identical to API key controllers except the widget sends a JWT instead. The `ThingsboardClientProvider` detects the `Bearer ` prefix automatically.
 
-See full code: [`WidgetDataController.java`](src/main/java/org/thingsboard/extension/examples/WidgetDataController.java)
+See full code: [`TenantReportController.java`](src/main/java/org/thingsboard/extension/examples/TenantReportController.java)
 
 ```java
 @RestController
-@RequestMapping("/api/extension/widget")
-public class WidgetDataController {
+@RequestMapping("/api/extension/report")
+public class TenantReportController {
 
-    @PostMapping("/current-stats")
-    public Map<String, Object> currentStats(@RequestBody JsonNode params,
-                                            ThingsboardClient tb) throws Exception {
-        PageDataDevice devices = tb.getTenantDevices(1, 0, null, null, null, null);
+    @PostMapping("/generate")
+    public Map<String, Object> generate(@RequestBody JsonNode params,
+                                        ThingsboardClient tb) throws Exception {
+        long totalDevices = countEntities(tb, EntityType.DEVICE);
+        long totalAssets = countEntities(tb, EntityType.ASSET);
+        long totalUsers = countEntities(tb, EntityType.USER);
+
         return Map.of(
                 "status", "ok",
-                "totalDevices", devices.getTotalElements()
+                "totalDevices", totalDevices,
+                "totalAssets", totalAssets,
+                "totalUsers", totalUsers
         );
+    }
+
+    private long countEntities(ThingsboardClient tb, EntityType entityType) throws Exception {
+        EntityTypeFilter filter = new EntityTypeFilter();
+        filter.setEntityType(entityType);
+        EntityCountQuery query = new EntityCountQuery();
+        query.setEntityFilter(filter);
+        return tb.countEntitiesByQuery(query);
     }
 }
 ```

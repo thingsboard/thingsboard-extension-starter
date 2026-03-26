@@ -16,9 +16,9 @@
 /**
  * ThingsBoard Button Widget -- Cloud Example
  *
- * What it does:   Calls the extension's /api/extension/widget/current-stats
- *                 endpoint on an external host and shows the total device count
- *                 in a popup.
+ * What it does:   Calls the extension's /api/extension/report/generate
+ *                 endpoint on an external host and shows a tenant summary
+ *                 report in a popup.
  *
  * Widget type:    Action -- Button widget "On click" handler
  * Where to paste: Widget -> Settings -> Actions -> "On click" -> Custom action (JS)
@@ -36,7 +36,7 @@ var jwt = localStorage.getItem('jwt_token');
 
 // Full URL -- the extension runs on a separate host from ThingsBoard Cloud.
 // Change this to your extension's public address.
-var url = 'https://your-extension-host:8090/api/extension/widget/current-stats';
+var url = 'https://your-extension-host:8090/api/extension/report/generate';
 
 // Use fetch() for cross-origin requests to the external extension.
 // The on-premise HTTP client (ctx.http) only works for same-origin requests.
@@ -63,7 +63,7 @@ fetch(url, {
 .then(function(data) {
     // data is undefined if the 401 handler above returned early.
     if (data) {
-        alert('Total devices: ' + data.totalDevices);
+        alert('Devices: ' + data.totalDevices + ', Assets: ' + data.totalAssets + ', Users: ' + data.totalUsers);
     }
 })
 .catch(function(error) {
