@@ -1,14 +1,81 @@
 # ThingsBoard Extension Starter
 
-A starter project for building custom business logic on top of ThingsBoard. Your extension runs as a standalone Spring Boot service — use it for rule chain callbacks, widget backends, scheduled jobs, or any custom integration.
+A starter template for building custom ThingsBoard extensions as a standalone Spring Boot service. Use it for rule chain callbacks, dashboard widget backends, scheduled background jobs, or any custom integration that needs to talk to the ThingsBoard API.
 
-Works great with [Claude Code](https://claude.com/claude-code) — describe what you want in plain language and Claude generates the controller code, POJOs, and rule chain wiring instructions.
+Works great with [Claude Code](https://claude.com/claude-code) -- describe what you want in plain language and Claude generates the controller code, POJOs, and setup instructions.
+
+## Architecture
+
+The extension service runs alongside ThingsBoard and reacts to events in three ways.
+
+### Rule Chain Callback
+
+ThingsBoard rule engine sends events to the extension via a REST API Call node. The extension processes the event and returns a JSON response that routes back into the rule chain.
+
+```
+ThingsBoard Rule Engine              Extension Service (port 8090)
++----------------------+             +--------------------------+
+|  Message Type Switch  |             |  @RestController         |
+|  -------------------- |  POST JSON  |  /api/extension/...      |
+|  "Entity Created"    -+------------>|                          |
+|  "Post telemetry"     |             |  ThingsboardClient       |
+|  "Alarm"              |  JSON resp  |  from X-Authorization    |
+|                      <+-----------  |  header                  |
+|  Success / Failure    |             |                          |
++----------------------+             +--------------------------+
+```
+
+### Widget Callback
+
+A dashboard widget button calls the extension directly. The user's JWT authenticates the request, so API calls respect the user's tenant and permissions.
+
+```
+ThingsBoard Dashboard                Extension Service (port 8090)
++----------------------+             +--------------------------+
+|  Widget Button        |             |  @RestController         |
+|  "On click" action    |  POST JSON  |  /api/extension/...      |
+|  -------------------- +------------>|                          |
+|  JWT from user        |             |  ThingsboardClient       |
+|  session              |  JSON resp  |  from Bearer JWT         |
+|                      <+-----------  |                          |
++----------------------+             +--------------------------+
+```
+
+### Scheduled Background Job
+
+A background task runs on a timer using credentials configured at startup. No HTTP request needed.
+
+```
+Extension Service (port 8090)
++------------------------------------------------------+
+|  @Scheduled task runs on a timer                     |
+|  ThingsboardClient from application.yml credentials  |
+|  (TB_AUTH_API_KEY or username+password)               |
++------------------------------------------------------+
+```
+
+### Request/Response Contract
+
+For rule chain callbacks and widget callbacks:
+
+- **Input**: `msg.getData()` JSON from the rule chain -- whatever JSON the triggering event carries
+- **Output**: any JSON you return -- becomes the outgoing message in the rule chain
+- **2xx response** = Success route in rule chain
+- **non-2xx response** = Failure route in rule chain
+
+### Authentication Overview
+
+| Mode | Source | Header | Use case |
+|------|--------|--------|----------|
+| API Key | ThingsBoard API Keys page | `X-Authorization: ApiKey <key>` | Rule chain callbacks |
+| JWT | User session (auto or manual) | `X-Authorization: Bearer <jwt>` | Widget callbacks |
+| Configured | `application.yml` or env vars | _(none -- injected at startup)_ | Scheduled tasks, background jobs |
 
 ## Prerequisites
 
 One of:
-- **Docker** (recommended) — no Java or Maven needed
-- **Java 25+** — Maven is included via `./mvnw`
+- **Docker** (recommended) -- no Java or Maven needed
+- **Java 25+** -- Maven is included via `./mvnw`
 
 And:
 - A running ThingsBoard instance (default: `http://localhost:8080`)
@@ -20,7 +87,7 @@ And:
 # 1. Clone or copy this project
 cd thingsboard-extension-starter
 
-# 2. (Optional) Set your ThingsBoard URL in src/main/resources/application.yml
+# 2. (Optional) Set your ThingsBoard URL in extension/src/main/resources/application.yml
 #    Default: http://localhost:8080
 
 # 3. Run with Docker (recommended)
@@ -44,53 +111,123 @@ Health check: `curl http://localhost:8090/api/health`
 
 Swagger UI: `http://localhost:8090/swagger-ui.html`
 
-## How It Works
+## Editions (CE / PE / PaaS)
 
-The extension service runs alongside ThingsBoard and reacts to events in three ways:
+The project supports all three ThingsBoard editions. Set the `thingsboard-client.artifactId` property in the **root** `pom.xml`:
 
-```
-Pattern 1: HTTP Callback (rule chain or widget)
-┌───────────────────────────┐                ┌──────────────────────────────┐
-│                           │                │                              │
-│  Rule chain REST API Call │   POST + JSON  │  @RestController endpoint    │
-│  or Dashboard Widget      ┼───────────────>│  ThingsboardClient resolved  │
-│                           │<───────────────┤  from X-Authorization header │
-│  X-Authorization:         │  JSON response │                              │
-│    ApiKey <key>           │                │                              │
-│    or Bearer <jwt>        │                │                              │
-└───────────────────────────┘                └──────────────────────────────┘
+| Edition | Property value |
+|---------|---------------|
+| CE (Community Edition) | `thingsboard-ce-client` |
+| PE (Professional Edition) | `thingsboard-pe-client` |
+| PaaS (ThingsBoard Cloud) | `thingsboard-paas-client` |
 
-Pattern 2: Scheduled Background Job (configured credentials)
-┌──────────────────────────────────────────────────────────────┐
-│                                                              │
-│  @Scheduled task runs on a timer — no HTTP request           │
-│  ThingsboardClient injected at startup from application.yml  │
-│  (TB_AUTH_API_KEY or username+password env vars)             │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
+After switching editions, regenerate the API docs used by Claude Code:
+
+```bash
+./mvnw generate-resources -pl extension -q
 ```
 
-**The X-Authorization header carries authentication:**
-1. For rule chain callbacks, you configure a REST API Call node to send `X-Authorization: ApiKey <key>`
-2. For widget callbacks, the widget automatically includes the user's JWT when the URL starts with `/api` (relative path) — no manual header setup needed
-3. Your extension reads the header and creates a `ThingsboardClient` authenticated as that caller
-4. Different tenants send different credentials, so multi-tenancy works automatically
+## Integration Guides
 
-**Request/response is plain JSON:**
-- **Input**: `msg.getData()` from the rule chain — whatever JSON the triggering event carries
-- **Output**: any JSON you return — becomes the outgoing message in the rule chain
-- **2xx response** = Success route in rule chain
-- **non-2xx response** = Failure route in rule chain
+### Connecting to ThingsBoard Rule Chains
+
+Use this when you want the extension to react to ThingsBoard events -- device telemetry, entity creation, alarms, etc.
+
+**Step-by-step:**
+
+1. Open ThingsBoard UI -> **Rule Chains** -> your rule chain
+2. Add a **REST API Call** node
+3. Configure it:
+   - **Method:** `POST`
+   - **URL:** `http://localhost:8090/api/extension/your-feature/endpoint`
+   - **Headers:**
+     - `Content-Type: application/json`
+     - `X-Authorization: ApiKey YOUR_API_KEY`
+   - **Credentials:** Anonymous (the API key in the header handles auth)
+4. Connect the triggering node (e.g., Message Type Switch -> "Entity Created" output) to the REST API Call node
+5. The response JSON goes to the **Success** route (2xx) or **Failure** route (non-2xx)
+
+**Common message types** (full reference in `docs/tb-message-types.md`):
+
+| Message type | Trigger |
+|-------------|---------|
+| `POST_TELEMETRY_REQUEST` | Device sends telemetry |
+| `ENTITY_CREATED` | Entity created via UI, API, or provisioning |
+| `ENTITY_UPDATED` | Entity updated |
+| `ENTITY_DELETED` | Entity deleted |
+| `ALARM` | Alarm created, updated, severity changed, or cleared by rule engine |
+| `ATTRIBUTES_UPDATED` | Server-side or shared attributes updated |
+
+### Connecting to Dashboard Widgets
+
+Use this when you want a dashboard button or widget to call the extension.
+
+#### On-Premise Setup
+
+When ThingsBoard and the extension run on the same network, HAProxy routes `/api/extension/*` requests to the extension service.
+
+**1. Add HAProxy routing**
+
+Add the contents of `deploy/on-premise/haproxy-extension.cfg.snippet` to your HAProxy `frontend` section **before** the existing ThingsBoard backend ACL. HAProxy evaluates rules in order -- the first match wins.
+
+```
+# Frontend ACL (add inside your existing 'frontend' block, BEFORE the ThingsBoard ACL)
+acl is_extension path_beg /api/extension/
+use_backend thingsboard_extension if is_extension
+
+# Backend block (add as a new block, alongside existing backend blocks)
+backend thingsboard_extension
+    server extension 127.0.0.1:8090 check
+```
+
+**2. Add the widget JS snippet**
+
+Use `self.ctx.http.post()` with a relative URL. ThingsBoard automatically adds the user's JWT as `X-Authorization: Bearer <jwt>` -- no manual auth needed.
+
+Setup: Widget -> Settings -> Actions -> "On click" -> Custom action (JS). Paste the snippet from `examples/widgets/on-premise-button.js` and change the URL to your extension's endpoint.
+
+#### Cloud Setup
+
+When the extension runs on a separate host from ThingsBoard Cloud, the widget makes cross-origin requests.
+
+**1. Set CORS on the extension**
+
+Set the `CORS_ALLOWED_ORIGINS` environment variable to your ThingsBoard Cloud origin (e.g., `https://thingsboard.cloud`). Without this, browser widget calls are blocked by CORS.
+
+**2. Add the widget JS snippet**
+
+Use `fetch()` with a full URL and read the JWT manually from `localStorage.getItem('jwt_token')`. The snippet includes an explicit `X-Authorization: Bearer <jwt>` header.
+
+Setup: same widget action config as on-premise. Paste the snippet from `examples/widgets/cloud-button.js` and change the URL to your extension's public address.
+
+### Scheduled Background Jobs
+
+No rule chain wiring needed. Set authentication credentials before starting the service:
+
+```bash
+# Option 1: API key (recommended)
+export TB_AUTH_API_KEY=your-api-key-here
+
+# Option 2: Username and password
+export TB_AUTH_USERNAME=tenant@example.com
+export TB_AUTH_PASSWORD=your-password
+```
+
+Or in `docker-compose.yml`:
+```yaml
+environment:
+  - TB_AUTH_API_KEY=your-api-key-here
+```
+
+The `@Scheduled` method runs automatically on the configured interval. Use `@ConditionalOnBean(ThingsboardClient.class)` on the component so it is silently skipped when no credentials are set.
 
 ## Authentication Modes
 
-### API Key (rule chain callbacks)
+### API Key (Rule Chain Callbacks)
 
-Used when ThingsBoard rule chains call your extension via a **REST API Call** node.
-
-- **Header format:** `X-Authorization: ApiKey <key>`
-- **How to get a key:** ThingsBoard UI → API Keys → create key as Tenant Admin
-- **Controller pattern:** declare `ThingsboardClient tb` as a method parameter — the provider resolves and caches the client automatically
+- **Header:** `X-Authorization: ApiKey <key>`
+- **How to get a key:** ThingsBoard UI -> API Keys -> create key as Tenant Admin
+- **Controller pattern:** declare `ThingsboardClient tb` as a method parameter
 
 ```java
 @PostMapping("/on-device-created")
@@ -100,31 +237,25 @@ public Map<String, Object> onDeviceCreated(@RequestBody JsonNode device,
 }
 ```
 
-### JWT Token (widget callbacks)
+### JWT Token (Widget Callbacks)
 
-Used when ThingsBoard dashboard widgets call your extension directly.
-
-- **Header format:** `X-Authorization: Bearer <jwt>`
-- **How it works:** ThingsBoard automatically includes the user's JWT when the widget makes requests to URLs starting with `/api` (relative path) — no manual token handling needed
-- **Controller pattern:** identical to API key — declare `ThingsboardClient tb` as a method parameter. The provider detects the `Bearer ` prefix and uses JWT auth automatically
+- **Header:** `X-Authorization: Bearer <jwt>`
+- **How it works:** on-premise widgets auto-include the JWT for relative `/api` URLs; cloud widgets read it from `localStorage`
+- **Controller pattern:** identical to API key -- the provider detects the `Bearer ` prefix automatically
 
 ```java
 @PostMapping("/current-stats")
 public Map<String, Object> currentStats(@RequestBody JsonNode params,
-                                           ThingsboardClient tb) throws Exception {
-    // tb is authenticated with the user's JWT — API calls respect tenant/permissions
+                                        ThingsboardClient tb) throws Exception {
+    // tb is authenticated with the user's JWT
 }
 ```
 
-**Note:** The value must be `Bearer <token>` including the `Bearer ` prefix and space. The token without the prefix returns 401.
+### Configured Credentials (Scheduled Tasks)
 
-### Configured Credentials (scheduled tasks)
-
-Used for background jobs that run on a schedule, with no incoming HTTP request.
-
-- **No header needed** — credentials are set in `application.yml` or via environment variables
-- **How to set up:** configure `TB_AUTH_API_KEY` (recommended) or `TB_AUTH_USERNAME` + `TB_AUTH_PASSWORD` environment variables
-- **Component pattern:** `@Component` class with constructor injection of `ThingsboardClient`
+- **No header needed** -- credentials set in `application.yml` or via environment variables
+- **Setup:** set `TB_AUTH_API_KEY` (recommended) or `TB_AUTH_USERNAME` + `TB_AUTH_PASSWORD`
+- **Component pattern:** constructor injection of `ThingsboardClient`
 
 ```java
 @ConditionalOnBean(ThingsboardClient.class)
@@ -143,218 +274,49 @@ public class MyScheduledTask {
 }
 ```
 
-**Note:** If neither `TB_AUTH_API_KEY` nor `TB_AUTH_USERNAME` is set, the `ThingsboardClient` bean is not created. Components that use `@ConditionalOnBean(ThingsboardClient.class)` (like the example `DeviceHealthCheckTask`) are silently skipped — the app starts normally without them.
+If no credentials are configured, the `ThingsboardClient` bean is not created and components with `@ConditionalOnBean` are silently skipped.
 
-> **Note:** The examples below are intentionally simple — they exist to demonstrate extension patterns (no-auth, API key auth, JWT auth, scheduled), not to solve real problems. For instance, unit conversion is easily done in a ThingsBoard rule chain script node. Replace them with your own business logic.
+## Security and Authorization
 
-## Example 1: Telemetry Unit Conversion
+Restrict endpoints to specific user roles using `@PreAuthorize` with `hasAuthority()`.
 
-**Business need:** Convert telemetry values between units (°F→°C, psi→bar, etc.) before storing them.
-
-This is the simplest pattern — no ThingsBoard API calls needed. Just omit the `ThingsboardClient` parameter.
-
-See full code: [`TelemetryUnitConversionController.java`](src/main/java/org/thingsboard/extension/examples/TelemetryUnitConversionController.java)
+Available authorities: `SYS_ADMIN`, `TENANT_ADMIN`, `CUSTOMER_USER`.
 
 ```java
-@RestController
-@RequestMapping("/api/extension/transform")
-public class TelemetryUnitConversionController {
-
-    private static final Map<String, Rule> RULES = Map.of(
-            "temperature_f", new Rule("temperature_c", f -> (f - 32) * 5.0 / 9.0),
-            "pressure_psi",  new Rule("pressure_bar",  psi -> psi * 0.0689476)
-    );
-
-    @PostMapping("/telemetry")
-    public Map<String, Object> transformTelemetry(@RequestBody ObjectNode telemetry) {
-        // For each key, apply the matching rule (or pass through unchanged)
-    }
-
-    private record Rule(String outputKey, DoubleUnaryOperator convert) {}
+@PreAuthorize("hasAuthority('TENANT_ADMIN')")
+@PostMapping("/admin-only")
+public Map<String, Object> adminOnly(@RequestBody JsonNode data,
+                                     ThingsboardClient tb) throws Exception {
+    // Only tenant admins can access this endpoint
 }
 ```
 
-Edit the `RULES` map to add your own conversions — each entry maps an input key to an output key + formula. Keys without a matching rule pass through unchanged (e.g., `"voltage": 3.3` stays as-is).
-
-### Testing
-
-```bash
-curl -X POST http://localhost:8090/api/extension/transform/telemetry \
-  -H 'Content-Type: application/json' \
-  -d '{"temperature_f": 77.0, "pressure_psi": 14.7}'
-```
-
-Response:
-```json
-{"temperature_c":25.0,"pressure_bar":1.01}
-```
-
-## Example 2: Billing on Device Creation
-
-**Business need:** When a new device is created, mark it as billing-active by saving a server-side attribute.
-
-This pattern uses `ThingsboardClient` to call ThingsBoard APIs, authenticated via the `X-Authorization` header.
-
-See full code: [`BillingController.java`](src/main/java/org/thingsboard/extension/examples/BillingController.java)
+Combine with logical operators:
 
 ```java
-@RestController
-@RequestMapping("/api/extension/billing")
-public class BillingController {
-
-    @PostMapping("/on-device-created")
-    public Map<String, Object> onDeviceCreated(@RequestBody JsonNode device,
-                                               ThingsboardClient tb) throws Exception {
-        String deviceId = device.get("id").get("id").asText();
-        String deviceName = device.get("name").asText();
-        String billingStartedAt = Instant.now().toString();
-
-        tb.saveDeviceAttributes(deviceId, "SERVER_SCOPE",
-                "{\"billingActive\": true, \"billingStartedAt\": \"%s\"}".formatted(billingStartedAt));
-
-        return Map.of(
-                "status", "ok",
-                "deviceId", deviceId,
-                "deviceName", deviceName,
-                "billingStartedAt", billingStartedAt
-        );
-    }
+@PreAuthorize("hasAuthority('TENANT_ADMIN') or hasAuthority('CUSTOMER_USER')")
+@PostMapping("/tenant-or-customer")
+public Map<String, Object> tenantOrCustomer(@RequestBody JsonNode data,
+                                            ThingsboardClient tb) throws Exception {
+    // Accessible to both tenant admins and customer users
 }
 ```
 
-**How it works:**
-1. `ThingsboardClient tb` — auto-resolved from the `X-Authorization` header
-2. `device.get("id").get("id").asText()` — extracts the device UUID from the ThingsBoard entity ID structure `{"entityType": "DEVICE", "id": "uuid"}`
-3. `tb.saveDeviceAttributes(...)` — calls the ThingsBoard REST API to save server-side attributes
-4. Returns a JSON response — 2xx goes to the Success route, non-2xx to the Failure route
+The user lookup (`getUser()`) is lazy -- it is only called when `@PreAuthorize` is present on the endpoint. Endpoints without `@PreAuthorize` have zero authorization overhead.
 
-### Testing
+## Examples
 
-```bash
-# Replace YOUR_API_KEY with a real API key (ThingsBoard UI → API Keys)
-curl -X POST http://localhost:8090/api/extension/billing/on-device-created \
-  -H 'Content-Type: application/json' \
-  -H 'X-Authorization: ApiKey YOUR_API_KEY' \
-  -d '{"id":{"id":"any-device-uuid","entityType":"DEVICE"},"name":"Test Device"}'
-```
+The project includes four example extensions that demonstrate different patterns. These are intentionally simple -- they exist to show the integration patterns, not to solve real problems.
 
-> Without a valid API key, this returns 401. With a valid key but invalid device ID, it returns a ThingsBoard API error — both confirm the extension is running and processing requests.
+1. **Telemetry Unit Conversion** -- no-auth pattern. Converts telemetry values (F to C, psi to bar) without calling the ThingsBoard API. See `examples/src/main/java/.../TelemetryUnitConversionController.java`.
 
-## Example 3: Tenant Report (Widget Button)
+2. **Billing on Device Creation** -- API key auth pattern. Saves a `billingActive` server-side attribute when a device is created. See `examples/src/main/java/.../BillingController.java`.
 
-**Business need:** Add a "Generate Report" button to a dashboard that counts all devices, assets, and users in the tenant.
+3. **Tenant Report (Widget Button)** -- JWT auth pattern. Counts all devices, assets, and users in the tenant. See `examples/src/main/java/.../TenantReportController.java`.
 
-This pattern is identical to API key controllers except the widget sends a JWT instead. The `ThingsboardClientProvider` detects the `Bearer ` prefix automatically.
+4. **Scheduled Health Check** -- configured credentials pattern. Runs every 60 seconds and writes a `lastHealthCheckTs` attribute to all devices. See `examples/src/main/java/.../DeviceHealthCheckTask.java`.
 
-See full code: [`TenantReportController.java`](src/main/java/org/thingsboard/extension/examples/TenantReportController.java)
-
-```java
-@RestController
-@RequestMapping("/api/extension/report")
-public class TenantReportController {
-
-    @PostMapping("/generate")
-    public Map<String, Object> generate(@RequestBody JsonNode params,
-                                        ThingsboardClient tb) throws Exception {
-        long totalDevices = countEntities(tb, EntityType.DEVICE);
-        long totalAssets = countEntities(tb, EntityType.ASSET);
-        long totalUsers = countEntities(tb, EntityType.USER);
-
-        return Map.of(
-                "status", "ok",
-                "totalDevices", totalDevices,
-                "totalAssets", totalAssets,
-                "totalUsers", totalUsers
-        );
-    }
-
-    private long countEntities(ThingsboardClient tb, EntityType entityType) throws Exception {
-        EntityTypeFilter filter = new EntityTypeFilter();
-        filter.setEntityType(entityType);
-        EntityCountQuery query = new EntityCountQuery();
-        query.setEntityFilter(filter);
-        return tb.countEntitiesByQuery(query);
-    }
-}
-```
-
-### Testing
-
-```bash
-# Replace YOUR_JWT with a valid ThingsBoard JWT (from browser localStorage or /api/auth/login)
-curl -X POST http://localhost:8090/api/extension/report/generate \
-  -H 'Content-Type: application/json' \
-  -H 'X-Authorization: Bearer YOUR_JWT' \
-  -d '{}'
-```
-
-> Without a valid JWT, this returns 401.
-
-## Example 4: Scheduled Health Check
-
-**Business need:** Periodically check all tenant devices and record a health check timestamp as a server attribute — without any incoming HTTP request.
-
-See full code: [`DeviceHealthCheckTask.java`](src/main/java/org/thingsboard/extension/examples/DeviceHealthCheckTask.java)
-
-```java
-@ConditionalOnBean(ThingsboardClient.class)
-@Component
-public class DeviceHealthCheckTask {
-
-    private final ThingsboardClient tb;
-
-    public DeviceHealthCheckTask(ThingsboardClient tb) {
-        this.tb = tb;
-    }
-
-    @Scheduled(fixedRate = 60, timeUnit = TimeUnit.SECONDS)
-    public void run() throws Exception {
-        PageDataDevice page = tb.getTenantDevices(100, 0, null, null, null, null);
-        log.info("Health check: {} devices in tenant", page.getTotalElements());
-
-        String ts = String.valueOf(System.currentTimeMillis());
-        for (var device : page.getData()) {
-            String deviceId = device.getId().getId().toString();
-            tb.saveDeviceAttributes(deviceId, "SERVER_SCOPE",
-                    "{\"lastHealthCheckTs\": " + ts + "}");
-        }
-    }
-}
-```
-
-**How it works:**
-- `@Scheduled(fixedRate = 60, timeUnit = TimeUnit.SECONDS)` triggers the method every 60 seconds
-- The `ThingsboardClient` is configured in `application.yml`, not from an HTTP header
-- `@ConditionalOnBean` makes this task silently skip when no credentials are configured
-- Exceptions are handled by the global `SchedulingConfig` error handler — the task continues on next trigger
-
-### Setup
-
-No rule chain wiring needed. Set the authentication credentials before starting the service:
-
-```bash
-# Option 1: API key (recommended)
-export TB_AUTH_API_KEY=your-api-key-here
-
-# Option 2: Username and password
-export TB_AUTH_USERNAME=tenant@example.com
-export TB_AUTH_PASSWORD=your-password
-
-# Then start the service
-./run.sh
-```
-
-Or in `docker-compose.yml`:
-```yaml
-environment:
-  - TB_AUTH_API_KEY=your-api-key-here
-```
-
-**Verification:** After the service starts, check the logs for the INFO message:
-```
-Health check: 5 devices in tenant
-```
-Then open a device in ThingsBoard → **Attributes** → **Server attributes** and verify `lastHealthCheckTs` appears.
+Delete the `examples/` module when you are ready to write your own code. See [Removing Examples](#removing-examples).
 
 ## Creating Your Own Extension
 
@@ -364,33 +326,32 @@ Open this project in Claude Code and describe what you want:
 
 > "I want to send a Slack notification when a critical alarm is created"
 
-Claude will:
-1. Ask clarifying questions (or you provide details upfront)
-2. Generate the controller class (or scheduled task)
-3. Add any needed dependencies to `pom.xml`
-4. Provide setup and testing instructions
+Claude will ask clarifying questions, generate the controller class (or scheduled task), add any needed dependencies to `pom.xml`, and provide setup and testing instructions.
 
 ### Option B: Manual
 
 **For an HTTP callback (rule chain or widget):**
-1. Create a new `@RestController` class in `src/main/java/org/thingsboard/extension/`
+1. Create a new `@RestController` class in `extension/src/main/java/org/thingsboard/extension/`
 2. Add a `@PostMapping` method that takes `@RequestBody JsonNode` (or a custom POJO)
-3. If you need ThingsBoard APIs, add `ThingsboardClient tb` as a parameter
-4. Return any object — Spring serializes it to JSON
+3. If you need ThingsBoard APIs, add `ThingsboardClient tb` as a method parameter
+4. Return any object -- Spring serializes it to JSON
+5. All extension endpoints must start with `/api/extension/`
 
 **For a scheduled background job:**
-1. Create a new `@Component` class in `src/main/java/org/thingsboard/extension/`
+1. Create a new `@Component` class in `extension/src/main/java/org/thingsboard/extension/`
 2. Inject `ThingsboardClient tb` via constructor
 3. Add a method annotated with `@Scheduled`
-4. Set `TB_AUTH_API_KEY` (or username+password) before starting the service
+4. Add `@ConditionalOnBean(ThingsboardClient.class)` to the class
+5. Set `TB_AUTH_API_KEY` (or username+password) before starting the service
 
-**Need extra libraries?** (Slack SDK, email, database driver, etc.) Add a `<dependency>` block to `pom.xml` inside the `<dependencies>` section — follow the pattern of the existing entries.
+**Need extra libraries?** (Slack SDK, email, database driver, etc.) Add a `<dependency>` block to `pom.xml` inside the `<dependencies>` section.
 
-### Hot Reload (development)
+## Hot Reload
 
 The project includes `spring-boot-devtools`. When running with `./mvnw spring-boot:run`:
+
 1. Make your code changes
-2. Run `./mvnw compile -q` in a separate terminal
+2. Run `./mvnw compile -pl extension -q` in a separate terminal
 3. The service auto-restarts in ~2 seconds
 
 ## Deployment
@@ -428,7 +389,7 @@ Deploy the extension alongside your existing ThingsBoard installation.
 ```bash
 cd deploy/on-premise
 cp .env.example .env
-# Edit .env — set IMAGE_NAME if you published to a registry
+# Edit .env -- set IMAGE_NAME if you published to a registry
 ```
 
 **2. Start the extension**
@@ -441,7 +402,7 @@ The extension connects to ThingsBoard at `http://host.docker.internal:8080` by d
 
 **3. Add HAProxy routing**
 
-Open your HAProxy configuration and add the contents of `deploy/on-premise/haproxy-extension.cfg.snippet` to your `frontend` section. Insert it **before** your existing ThingsBoard backend ACL — HAProxy evaluates rules in order and the first match wins.
+Open your HAProxy configuration and add the contents of `deploy/on-premise/haproxy-extension.cfg.snippet` to your `frontend` section. Insert it **before** your existing ThingsBoard backend ACL -- HAProxy evaluates rules in order and the first match wins.
 
 ```
 # Add BEFORE the existing ThingsBoard ACL
@@ -491,9 +452,9 @@ cp .env.example .env
 ```
 
 Edit `.env` and set:
-- `IMAGE_NAME` — the full image name including registry prefix (e.g., `registry.example.com/thingsboard-extension`)
-- `THINGSBOARD_URL` — your ThingsBoard Cloud URL (default: `https://thingsboard.cloud`)
-- `CORS_ALLOWED_ORIGINS` — **required** — the origin of your ThingsBoard Cloud instance (e.g., `https://thingsboard.cloud`). Without this, browser widget calls are blocked by CORS.
+- `IMAGE_NAME` -- the full image name including registry prefix (e.g., `registry.example.com/thingsboard-extension`)
+- `THINGSBOARD_URL` -- your ThingsBoard Cloud URL (default: `https://thingsboard.cloud`)
+- `CORS_ALLOWED_ORIGINS` -- **required** -- the origin of your ThingsBoard Cloud instance (e.g., `https://thingsboard.cloud`). Without this, browser widget calls are blocked by CORS.
 
 **3. Start the extension**
 
@@ -538,9 +499,9 @@ Expected response: `{"status":"UP"}`
 | `thingsboard.auth.username` | _(empty)_ | Optional username for the shared ThingsboardClient bean. |
 | `thingsboard.auth.password` | _(empty)_ | Optional password for the shared ThingsboardClient bean. |
 
-Request/response logging is controlled by the logback level for `org.thingsboard.extension` (DEBUG = on, INFO = off). See `src/main/resources/logback.xml`.
+Request/response logging is controlled by the logback level for `org.thingsboard.extension` (DEBUG = on, INFO = off). See `extension/src/main/resources/logback.xml`.
 
-### Environment variables (Docker)
+### Environment Variables (Docker)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -559,3 +520,14 @@ Request/response logging is controlled by the logback level for `org.thingsboard
 | `Content-Type` | Yes | Must be `application/json` |
 | `X-Authorization` | Yes* | Authentication header. Two schemes: `ApiKey <key>` for rule chain callbacks, `Bearer <jwt>` for widget callbacks. *Required when the controller declares a `ThingsboardClient` parameter. Missing or invalid header returns 401. |
 
+## Removing Examples
+
+When you are ready to write your own extensions, remove the example code:
+
+1. Delete the `examples/` directory
+2. Remove `<module>examples</module>` from the root `pom.xml`
+3. Remove the `thingsboard-extension-examples` dependency from `extension/pom.xml`
+4. Remove example-specific test methods from `extension/src/test/.../ApplicationIntegrationTest.java`:
+   - `telemetryConversionWorksWithoutAuth`
+   - `billingEndpointReturns401WithoutAuth`
+   - `reportEndpointReturns401WithoutAuth`
