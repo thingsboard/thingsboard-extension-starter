@@ -185,12 +185,22 @@ Combine authorities: `@PreAuthorize("hasAuthority('TENANT_ADMIN') or hasAuthorit
 
 Access the security user in controller code:
 ```java
-TbAuthentication auth = (TbAuthentication) SecurityContextHolder.getContext().getAuthentication();
-TbSecurityUser user = auth.getPrincipal();
-String tenantId = user.getTenantId();
+// Option 1: static helper
+TbSecurityUser user = TbSecurity.getCurrentUser();
+UUID tenantId = user.getTenantId();
+Authority authority = user.getAuthority();
+
+// Option 2: @AuthenticationPrincipal annotation
+@PostMapping("/my-endpoint")
+public Map<String, Object> myEndpoint(@AuthenticationPrincipal TbSecurityUser user,
+                                       ThingsboardClient tb) throws Exception {
+    UUID tenantId = user.getTenantId();
+}
 ```
 
-Import: `org.thingsboard.extension.config.TbAuthentication`, `org.thingsboard.extension.config.TbSecurityUser`
+`TbSecurityUser` returns typed values: `getAuthority()` returns `Authority` enum, ID getters return `UUID`.
+
+Import: `org.thingsboard.extension.config.TbSecurity`, `org.thingsboard.extension.config.TbSecurityUser`
 
 ### File structure
 
@@ -231,6 +241,7 @@ Import: `org.thingsboard.extension.config.TbAuthentication`, `org.thingsboard.ex
     │       ├── SchedulingConfig.java             # Scheduler error handling
     │       ├── SecurityConfig.java               # Spring Security filter chain + CORS
     │       ├── TbAuthentication.java             # Spring Security Authentication (lazy authorities)
+    │       ├── TbSecurity.java                    # Static helper: TbSecurity.getCurrentUser()
     │       ├── TbSecurityFilter.java             # Populates SecurityContext from X-Authorization
     │       ├── TbSecurityUser.java               # Lazily-loaded ThingsBoard user wrapper
     │       ├── ThingsboardAuthConfig.java        # Optional TB client bean for background jobs

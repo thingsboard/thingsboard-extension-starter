@@ -2,7 +2,7 @@
 
 A starter template for building custom ThingsBoard extensions as a standalone Spring Boot service. Use it for rule chain callbacks, dashboard widget backends, scheduled background jobs, or any custom integration that needs to talk to the ThingsBoard API.
 
-Works great with [Claude Code](https://claude.com/claude-code) -- describe what you want in plain language and Claude generates the controller code, POJOs, and setup instructions.
+Works great with [Claude Code](https://claude.com/claude-code) — describe what you want in plain language and Claude generates the controller code, POJOs, and setup instructions.
 
 ## Architecture
 
@@ -13,16 +13,16 @@ The extension service runs alongside ThingsBoard and reacts to events in three w
 ThingsBoard rule engine sends events to the extension via a REST API Call node. The extension processes the event and returns a JSON response that routes back into the rule chain.
 
 ```
-ThingsBoard Rule Engine              Extension Service (port 8090)
-+----------------------+             +--------------------------+
+ThingsBoard Rule Engine               Extension Service (port 8090)
++-----------------------+             +--------------------------+
 |  Message Type Switch  |             |  @RestController         |
-|  -------------------- |  POST JSON  |  /api/extension/...      |
+|  -------------------  |  POST JSON  |  /api/extension/...      |
 |  "Entity Created"    -+------------>|                          |
 |  "Post telemetry"     |             |  ThingsboardClient       |
 |  "Alarm"              |  JSON resp  |  from X-Authorization    |
-|                      <+-----------  |  header                  |
+|                      <+-------------|  header                  |
 |  Success / Failure    |             |                          |
-+----------------------+             +--------------------------+
++-----------------------+             +--------------------------+
 ```
 
 ### Widget Callback
@@ -30,15 +30,15 @@ ThingsBoard Rule Engine              Extension Service (port 8090)
 A dashboard widget button calls the extension directly. The user's JWT authenticates the request, so API calls respect the user's tenant and permissions.
 
 ```
-ThingsBoard Dashboard                Extension Service (port 8090)
-+----------------------+             +--------------------------+
+ThingsBoard Dashboard                 Extension Service (port 8090)
++-----------------------+             +--------------------------+
 |  Widget Button        |             |  @RestController         |
 |  "On click" action    |  POST JSON  |  /api/extension/...      |
-|  -------------------- +------------>|                          |
+|  -------------------  +------------>|                          |
 |  JWT from user        |             |  ThingsboardClient       |
 |  session              |  JSON resp  |  from Bearer JWT         |
-|                      <+-----------  |                          |
-+----------------------+             +--------------------------+
+|                      <+-------------|                          |
++-----------------------+             +--------------------------+
 ```
 
 ### Scheduled Background Job
@@ -58,8 +58,8 @@ Extension Service (port 8090)
 
 For rule chain callbacks and widget callbacks:
 
-- **Input**: `msg.getData()` JSON from the rule chain -- whatever JSON the triggering event carries
-- **Output**: any JSON you return -- becomes the outgoing message in the rule chain
+- **Input**: `msg.getData()` JSON from the rule chain — whatever JSON the triggering event carries
+- **Output** (optional): any JSON you return — becomes the outgoing message in the rule chain. If you don't need to pass data back, return an empty response or a simple status.
 - **2xx response** = Success route in rule chain
 - **non-2xx response** = Failure route in rule chain
 
@@ -69,13 +69,13 @@ For rule chain callbacks and widget callbacks:
 |------|--------|--------|----------|
 | API Key | ThingsBoard API Keys page | `X-Authorization: ApiKey <key>` | Rule chain callbacks |
 | JWT | User session (auto or manual) | `X-Authorization: Bearer <jwt>` | Widget callbacks |
-| Configured | `application.yml` or env vars | _(none -- injected at startup)_ | Scheduled tasks, background jobs |
+| Configured | `application.yml` or env vars | _(none — injected at startup)_ | Scheduled tasks, background jobs |
 
 ## Prerequisites
 
 One of:
-- **Docker** (recommended) -- no Java or Maven needed
-- **Java 25+** -- Maven is included via `./mvnw`
+- **Docker** (recommended) — no Java or Maven needed
+- **Java 25+** — Maven is included via `./mvnw`
 
 And:
 - A running ThingsBoard instance (default: `http://localhost:8080`)
@@ -131,7 +131,7 @@ After switching editions, regenerate the API docs used by Claude Code:
 
 ### Connecting to ThingsBoard Rule Chains
 
-Use this when you want the extension to react to ThingsBoard events -- device telemetry, entity creation, alarms, etc.
+Use this when you want the extension to react to ThingsBoard events — device telemetry, entity creation, alarms, etc.
 
 **Step-by-step:**
 
@@ -146,6 +146,8 @@ Use this when you want the extension to react to ThingsBoard events -- device te
    - **Credentials:** Anonymous (the API key in the header handles auth)
 4. Connect the triggering node (e.g., Message Type Switch -> "Entity Created" output) to the REST API Call node
 5. The response JSON goes to the **Success** route (2xx) or **Failure** route (non-2xx)
+
+**On-premise deployment:** If ThingsBoard and the extension run on the same host, the REST API Call node can reach the extension at `http://localhost:8090`. If they run on separate hosts, adjust the URL accordingly. For widget callbacks, HAProxy routing is also needed — see [On-Premise Setup](#on-premise-setup) below.
 
 **Common message types** (full reference in `docs/tb-message-types.md`):
 
@@ -168,7 +170,7 @@ When ThingsBoard and the extension run on the same network, HAProxy routes `/api
 
 **1. Add HAProxy routing**
 
-Add the contents of `deploy/on-premise/haproxy-extension.cfg.snippet` to your HAProxy `frontend` section **before** the existing ThingsBoard backend ACL. HAProxy evaluates rules in order -- the first match wins.
+Add the contents of `deploy/on-premise/haproxy-extension.cfg.snippet` to your HAProxy `frontend` section **before** the existing ThingsBoard backend ACL. HAProxy evaluates rules in order — the first match wins.
 
 ```
 # Frontend ACL (add inside your existing 'frontend' block, BEFORE the ThingsBoard ACL)
@@ -182,7 +184,7 @@ backend thingsboard_extension
 
 **2. Add the widget JS snippet**
 
-Use `self.ctx.http.post()` with a relative URL. ThingsBoard automatically adds the user's JWT as `X-Authorization: Bearer <jwt>` -- no manual auth needed.
+Use `self.ctx.http.post()` with a relative URL. ThingsBoard automatically adds the user's JWT as `X-Authorization: Bearer <jwt>` — no manual auth needed.
 
 Setup: Widget -> Settings -> Actions -> "On click" -> Custom action (JS). Paste the snippet from `examples/widgets/on-premise-button.js` and change the URL to your extension's endpoint.
 
@@ -241,7 +243,7 @@ public Map<String, Object> onDeviceCreated(@RequestBody JsonNode device,
 
 - **Header:** `X-Authorization: Bearer <jwt>`
 - **How it works:** on-premise widgets auto-include the JWT for relative `/api` URLs; cloud widgets read it from `localStorage`
-- **Controller pattern:** identical to API key -- the provider detects the `Bearer ` prefix automatically
+- **Controller pattern:** identical to API key — the provider detects the `Bearer ` prefix automatically
 
 ```java
 @PostMapping("/current-stats")
@@ -253,7 +255,7 @@ public Map<String, Object> currentStats(@RequestBody JsonNode params,
 
 ### Configured Credentials (Scheduled Tasks)
 
-- **No header needed** -- credentials set in `application.yml` or via environment variables
+- **No header needed** — credentials set in `application.yml` or via environment variables
 - **Setup:** set `TB_AUTH_API_KEY` (recommended) or `TB_AUTH_USERNAME` + `TB_AUTH_PASSWORD`
 - **Component pattern:** constructor injection of `ThingsboardClient`
 
@@ -302,19 +304,39 @@ public Map<String, Object> tenantOrCustomer(@RequestBody JsonNode data,
 }
 ```
 
-The user lookup (`getUser()`) is lazy -- it is only called when `@PreAuthorize` is present on the endpoint. Endpoints without `@PreAuthorize` have zero authorization overhead.
+Access the authenticated user inside a controller method:
+
+```java
+import org.thingsboard.extension.config.TbSecurity;
+import org.thingsboard.extension.config.TbSecurityUser;
+
+// Option 1: static helper
+TbSecurityUser user = TbSecurity.getCurrentUser();
+UUID tenantId = user.getTenantId();
+Authority authority = user.getAuthority();
+
+// Option 2: Spring's @AuthenticationPrincipal annotation
+@PostMapping("/my-endpoint")
+public Map<String, Object> myEndpoint(@AuthenticationPrincipal TbSecurityUser user,
+                                       ThingsboardClient tb) throws Exception {
+    UUID tenantId = user.getTenantId();
+    // ...
+}
+```
+
+The user lookup (`getUser()`) is lazy — it is only called when `@PreAuthorize` is present or when you access `TbSecurityUser` fields. Endpoints without `@PreAuthorize` have zero authorization overhead.
 
 ## Examples
 
-The project includes four example extensions that demonstrate different patterns. These are intentionally simple -- they exist to show the integration patterns, not to solve real problems.
+The project includes four example extensions that demonstrate different patterns. These are intentionally simple — they exist to show the integration patterns, not to solve real problems.
 
-1. **Telemetry Unit Conversion** -- no-auth pattern. Converts telemetry values (F to C, psi to bar) without calling the ThingsBoard API. See `examples/src/main/java/.../TelemetryUnitConversionController.java`.
+1. **Telemetry Unit Conversion** — no-auth pattern. Converts telemetry values (F to C, psi to bar) without calling the ThingsBoard API. See `examples/src/main/java/.../TelemetryUnitConversionController.java`.
 
-2. **Billing on Device Creation** -- API key auth pattern. Saves a `billingActive` server-side attribute when a device is created. See `examples/src/main/java/.../BillingController.java`.
+2. **Billing on Device Creation** — API key auth pattern. Saves a `billingActive` server-side attribute when a device is created. See `examples/src/main/java/.../BillingController.java`.
 
-3. **Tenant Report (Widget Button)** -- JWT auth pattern. Counts all devices, assets, and users in the tenant. See `examples/src/main/java/.../TenantReportController.java`.
+3. **Tenant Report (Widget Button)** — JWT auth pattern. Counts all devices, assets, and users in the tenant. See `examples/src/main/java/.../TenantReportController.java`.
 
-4. **Scheduled Health Check** -- configured credentials pattern. Runs every 60 seconds and writes a `lastHealthCheckTs` attribute to all devices. See `examples/src/main/java/.../DeviceHealthCheckTask.java`.
+4. **Scheduled Health Check** — configured credentials pattern. Runs every 60 seconds and writes a `lastHealthCheckTs` attribute to all devices. See `examples/src/main/java/.../DeviceHealthCheckTask.java`.
 
 Delete the `examples/` module when you are ready to write your own code. See [Removing Examples](#removing-examples).
 
@@ -334,7 +356,7 @@ Claude will ask clarifying questions, generate the controller class (or schedule
 1. Create a new `@RestController` class in `extension/src/main/java/org/thingsboard/extension/`
 2. Add a `@PostMapping` method that takes `@RequestBody JsonNode` (or a custom POJO)
 3. If you need ThingsBoard APIs, add `ThingsboardClient tb` as a method parameter
-4. Return any object -- Spring serializes it to JSON
+4. Return any object — Spring serializes it to JSON
 5. All extension endpoints must start with `/api/extension/`
 
 **For a scheduled background job:**
@@ -389,7 +411,7 @@ Deploy the extension alongside your existing ThingsBoard installation.
 ```bash
 cd deploy/on-premise
 cp .env.example .env
-# Edit .env -- set IMAGE_NAME if you published to a registry
+# Edit .env — set IMAGE_NAME if you published to a registry
 ```
 
 **2. Start the extension**
@@ -402,7 +424,7 @@ The extension connects to ThingsBoard at `http://host.docker.internal:8080` by d
 
 **3. Add HAProxy routing**
 
-Open your HAProxy configuration and add the contents of `deploy/on-premise/haproxy-extension.cfg.snippet` to your `frontend` section. Insert it **before** your existing ThingsBoard backend ACL -- HAProxy evaluates rules in order and the first match wins.
+Open your HAProxy configuration and add the contents of `deploy/on-premise/haproxy-extension.cfg.snippet` to your `frontend` section. Insert it **before** your existing ThingsBoard backend ACL — HAProxy evaluates rules in order and the first match wins.
 
 ```
 # Add BEFORE the existing ThingsBoard ACL
@@ -452,9 +474,9 @@ cp .env.example .env
 ```
 
 Edit `.env` and set:
-- `IMAGE_NAME` -- the full image name including registry prefix (e.g., `registry.example.com/thingsboard-extension`)
-- `THINGSBOARD_URL` -- your ThingsBoard Cloud URL (default: `https://thingsboard.cloud`)
-- `CORS_ALLOWED_ORIGINS` -- **required** -- the origin of your ThingsBoard Cloud instance (e.g., `https://thingsboard.cloud`). Without this, browser widget calls are blocked by CORS.
+- `IMAGE_NAME` — the full image name including registry prefix (e.g., `registry.example.com/thingsboard-extension`)
+- `THINGSBOARD_URL` — your ThingsBoard Cloud URL (default: `https://thingsboard.cloud`)
+- `CORS_ALLOWED_ORIGINS` — **required** — the origin of your ThingsBoard Cloud instance (e.g., `https://thingsboard.cloud`). Without this, browser widget calls are blocked by CORS.
 
 **3. Start the extension**
 

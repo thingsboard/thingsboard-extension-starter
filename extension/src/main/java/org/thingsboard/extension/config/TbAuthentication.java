@@ -42,7 +42,7 @@ public class TbAuthentication extends AbstractAuthenticationToken {
         Collection<GrantedAuthority> result = resolvedAuthorities;
         if (result == null) {
             try {
-                result = List.of(new SimpleGrantedAuthority(principal.getAuthority()));
+                result = List.of(new SimpleGrantedAuthority(principal.getAuthority().getValue()));
             } catch (Exception e) {
                 throw new RuntimeException("Failed to resolve user authorities", e);
             }

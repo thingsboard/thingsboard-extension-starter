@@ -18,6 +18,7 @@ package org.thingsboard.extension.config;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.thingsboard.client.ApiException;
 
 import java.util.Map;
@@ -80,6 +81,21 @@ class GlobalExceptionHandlerTest {
         assertEquals("Forbidden", body.get("error"));
         assertEquals(403, body.get("status"));
         assertEquals("Access denied", body.get("message"));
+    }
+
+    @Test
+    void authenticationExceptionReturns401() {
+        AuthenticationCredentialsNotFoundException ex =
+                new AuthenticationCredentialsNotFoundException("Authentication required");
+
+        ResponseEntity<Map<String, Object>> response = handler.handleAuthenticationException(ex);
+
+        assertEquals(401, response.getStatusCode().value());
+        Map<String, Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("Unauthorized", body.get("error"));
+        assertEquals(401, body.get("status"));
+        assertEquals("Authentication required", body.get("message"));
     }
 
     @Test

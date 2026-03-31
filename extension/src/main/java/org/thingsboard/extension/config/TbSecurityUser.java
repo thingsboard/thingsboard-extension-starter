@@ -16,7 +16,10 @@
 package org.thingsboard.extension.config;
 
 import org.thingsboard.client.ThingsboardClient;
+import org.thingsboard.client.model.Authority;
 import org.thingsboard.client.model.User;
+
+import java.util.UUID;
 
 /**
  * Lazily-loaded ThingsBoard user for the Spring Security context.
@@ -41,21 +44,21 @@ public class TbSecurityUser {
         return result;
     }
 
-    public String getAuthority() throws Exception {
-        return getUser().getAuthority().getValue();
+    public Authority getAuthority() throws Exception {
+        return getUser().getAuthority();
     }
 
-    public String getUserId() throws Exception {
-        return getUser().getId().getId().toString();
+    public UUID getUserId() throws Exception {
+        return getUser().getId().getId();
     }
 
-    public String getTenantId() throws Exception {
-        return getUser().getTenantId().getId().toString();
+    public UUID getTenantId() throws Exception {
+        return getUser().getTenantId().getId();
     }
 
-    public String getCustomerId() throws Exception {
+    public UUID getCustomerId() throws Exception {
         var customerId = getUser().getCustomerId();
-        return customerId != null ? customerId.getId().toString() : null;
+        return customerId != null ? customerId.getId() : null;
     }
 
 }

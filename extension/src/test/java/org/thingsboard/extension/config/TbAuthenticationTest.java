@@ -17,6 +17,7 @@ package org.thingsboard.extension.config;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.GrantedAuthority;
+import org.thingsboard.client.model.Authority;
 
 import java.util.Collection;
 
@@ -28,7 +29,7 @@ class TbAuthenticationTest {
     @Test
     void getAuthoritiesReturnsSingleAuthorityMatchingPrincipal() throws Exception {
         TbSecurityUser principal = mock(TbSecurityUser.class);
-        when(principal.getAuthority()).thenReturn("TENANT_ADMIN");
+        when(principal.getAuthority()).thenReturn(Authority.TENANT_ADMIN);
 
         TbAuthentication auth = new TbAuthentication(principal);
 
@@ -40,7 +41,7 @@ class TbAuthenticationTest {
     @Test
     void getAuthoritiesCachesResult() throws Exception {
         TbSecurityUser principal = mock(TbSecurityUser.class);
-        when(principal.getAuthority()).thenReturn("CUSTOMER_USER");
+        when(principal.getAuthority()).thenReturn(Authority.CUSTOMER_USER);
 
         TbAuthentication auth = new TbAuthentication(principal);
 

@@ -20,6 +20,8 @@ import org.thingsboard.client.ThingsboardClient;
 import org.thingsboard.client.model.Authority;
 import org.thingsboard.client.model.User;
 
+import java.util.UUID;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -36,7 +38,7 @@ class TbSecurityUserTest {
 
         verify(tb, never()).getUser();
 
-        assertEquals("TENANT_ADMIN", securityUser.getAuthority());
+        assertEquals(Authority.TENANT_ADMIN, securityUser.getAuthority());
         verify(tb, times(1)).getUser();
 
         // Second access uses cached result
@@ -56,10 +58,10 @@ class TbSecurityUserTest {
 
         TbSecurityUser securityUser = new TbSecurityUser(tb);
 
-        assertEquals("CUSTOMER_USER", securityUser.getAuthority());
-        assertEquals("11111111-1111-1111-1111-111111111111", securityUser.getUserId());
-        assertEquals("22222222-2222-2222-2222-222222222222", securityUser.getTenantId());
-        assertEquals("33333333-3333-3333-3333-333333333333", securityUser.getCustomerId());
+        assertEquals(Authority.CUSTOMER_USER, securityUser.getAuthority());
+        assertEquals(UUID.fromString("11111111-1111-1111-1111-111111111111"), securityUser.getUserId());
+        assertEquals(UUID.fromString("22222222-2222-2222-2222-222222222222"), securityUser.getTenantId());
+        assertEquals(UUID.fromString("33333333-3333-3333-3333-333333333333"), securityUser.getCustomerId());
     }
 
     @Test
