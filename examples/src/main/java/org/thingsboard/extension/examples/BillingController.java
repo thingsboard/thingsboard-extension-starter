@@ -16,6 +16,7 @@
 package org.thingsboard.extension.examples;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,6 +42,7 @@ import java.util.Map;
 @RequestMapping("/api/extension/billing")
 public class BillingController {
 
+    @PreAuthorize("hasAuthority('TENANT_ADMIN')")
     @PostMapping("/on-device-created")
     public Map<String, Object> onDeviceCreated(@RequestBody JsonNode device,
                                                ThingsboardClient tb) throws Exception {

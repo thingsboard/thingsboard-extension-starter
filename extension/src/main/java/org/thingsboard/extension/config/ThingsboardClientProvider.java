@@ -123,11 +123,12 @@ public class ThingsboardClientProvider implements HandlerMethodArgumentResolver 
         return ThingsboardClient.class.isAssignableFrom(parameter.getParameterType());
     }
 
-    @Override
-    public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
-                                  NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
-        HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
-        String authHeader = request != null ? request.getHeader(AUTH_HEADER) : null;
+    /**
+     * Resolves a ThingsboardClient from the request's X-Authorization header.
+     * Returns null if no valid auth header is present.
+     */
+    public ThingsboardClient resolveClient(HttpServletRequest request) {
+        String authHeader = request.getHeader(AUTH_HEADER);
 
         if (authHeader != null && authHeader.startsWith(BEARER_PREFIX)) {
             String token = authHeader.substring(BEARER_PREFIX.length()).trim();
@@ -143,9 +144,22 @@ public class ThingsboardClientProvider implements HandlerMethodArgumentResolver 
             }
         }
 
-        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
-                "Missing or invalid X-Authorization header. " +
-                "Use 'Bearer <token>' for JWT or 'ApiKey <key>' for API key authentication.");
+        return null;
+    }
+
+    @Override
+    public Object resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
+                                  NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
+        HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
+        ThingsboardClient client = request != null ? resolveClient(request) : null;
+
+        if (client == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                    "Missing or invalid X-Authorization header. " +
+                    "Use 'Bearer <token>' for JWT or 'ApiKey <key>' for API key authentication.");
+        }
+
+        return client;
     }
 
 }

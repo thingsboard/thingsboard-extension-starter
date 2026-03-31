@@ -17,6 +17,7 @@ package org.thingsboard.extension.config;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.thingsboard.client.ApiException;
 
 import java.util.Map;
@@ -65,6 +66,20 @@ class GlobalExceptionHandlerTest {
         assertEquals(500, body.get("status"));
         assertEquals("Internal server error", body.get("message"));
         assertNotNull(body.get("timestamp"));
+    }
+
+    @Test
+    void accessDeniedReturns403() {
+        AccessDeniedException ex = new AccessDeniedException("Access denied");
+
+        ResponseEntity<Map<String, Object>> response = handler.handleAccessDenied(ex);
+
+        assertEquals(403, response.getStatusCode().value());
+        Map<String, Object> body = response.getBody();
+        assertNotNull(body);
+        assertEquals("Forbidden", body.get("error"));
+        assertEquals(403, body.get("status"));
+        assertEquals("Access denied", body.get("message"));
     }
 
     @Test

@@ -163,6 +163,35 @@ Three ways to get a `ThingsboardClient`:
 
 For request-based flows, missing or invalid `X-Authorization` header returns 401 Unauthorized.
 
+### Security and Authorization
+
+The extension uses Spring Security for method-level authorization via `@PreAuthorize`. The security context is populated lazily — `ThingsboardClient.getUser()` is only called when `@PreAuthorize` or explicit `SecurityContextHolder` access needs it.
+
+Available authorities (from ThingsBoard `Authority` enum):
+- `SYS_ADMIN`
+- `TENANT_ADMIN`
+- `CUSTOMER_USER`
+
+Usage:
+```java
+@PreAuthorize("hasAuthority('TENANT_ADMIN')")
+@PostMapping("/admin-only")
+public Map<String, Object> adminOnly(@RequestBody JsonNode data, ThingsboardClient tb) throws Exception {
+    // Only TENANT_ADMIN users can access this
+}
+```
+
+Combine authorities: `@PreAuthorize("hasAuthority('TENANT_ADMIN') or hasAuthority('CUSTOMER_USER')")`
+
+Access the security user in controller code:
+```java
+TbAuthentication auth = (TbAuthentication) SecurityContextHolder.getContext().getAuthentication();
+TbSecurityUser user = auth.getPrincipal();
+String tenantId = user.getTenantId();
+```
+
+Import: `org.thingsboard.extension.config.TbAuthentication`, `org.thingsboard.extension.config.TbSecurityUser`
+
 ### File structure
 
 **Project root:**
@@ -195,14 +224,18 @@ For request-based flows, missing or invalid `X-Authorization` header returns 401
     ├── src/main/java/org/thingsboard/extension/
     │   ├── ThingsboardExtensionApplication.java  # Spring Boot entry point + @EnableScheduling
     │   └── config/
-    │       ├── ThingsboardAuthConfig.java        # Optional TB client bean for background jobs
     │       ├── GlobalExceptionHandler.java       # Structured JSON error responses
     │       ├── HealthController.java             # GET /api/health
     │       ├── OpenApiConfig.java                # Swagger UI with dual auth schemes
     │       ├── RequestLoggingFilter.java         # Request/response logging
     │       ├── SchedulingConfig.java             # Scheduler error handling
+    │       ├── SecurityConfig.java               # Spring Security filter chain + CORS
+    │       ├── TbAuthentication.java             # Spring Security Authentication (lazy authorities)
+    │       ├── TbSecurityFilter.java             # Populates SecurityContext from X-Authorization
+    │       ├── TbSecurityUser.java               # Lazily-loaded ThingsBoard user wrapper
+    │       ├── ThingsboardAuthConfig.java        # Optional TB client bean for background jobs
     │       ├── ThingsboardClientProvider.java    # Client cache + argument resolver
-    │       └── WebConfig.java                    # Registers the argument resolver + CORS config
+    │       └── WebConfig.java                    # Registers the argument resolver
     └── target/api-docs/                  # Generated — ThingsboardClient API docs (run mvnw generate-resources -pl extension)
 ```
 
