@@ -31,169 +31,83 @@
     <groupId>org.thingsboard</groupId>
     <artifactId>thingsboard-extension-starter</artifactId>
     <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
     <name>ThingsBoard Extension Starter</name>
     <description>Starter project for building ThingsBoard extensions</description>
     <inceptionYear>2026</inceptionYear>
+
+    <modules>
+        <module>examples</module>
+        <module>extension</module>
+    </modules>
 
     <properties>
         <java.version>25</java.version>
         <main.dir>${basedir}</main.dir>
         <thingsboard-client.version>4.4.0-SNAPSHOT</thingsboard-client.version>
-        <!-- ThingsBoard edition: thingsboard-ce-client / thingsboard-pe-client / thingsboard-paas-client -->
         <thingsboard-client.artifactId>thingsboard-paas-client</thingsboard-client.artifactId>
     </properties>
 
-    <dependencies>
-        <dependency>
-            <groupId>org.thingsboard.client</groupId>
-            <artifactId>${thingsboard-client.artifactId}</artifactId>
-            <version>${thingsboard-client.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.github.ben-manes.caffeine</groupId>
-            <artifactId>caffeine</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-            <version>2.8.16</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-devtools</artifactId>
-            <scope>provided</scope>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <scope>provided</scope>
-        </dependency>
-    </dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.thingsboard.client</groupId>
+                <artifactId>${thingsboard-client.artifactId}</artifactId>
+                <version>${thingsboard-client.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.thingsboard</groupId>
+                <artifactId>thingsboard-extension-examples</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>2.8.16</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>unpack-api-docs</id>
-                        <phase>generate-resources</phase>
-                        <goals>
-                            <goal>unpack</goal>
-                        </goals>
-                        <configuration>
-                            <overWriteIfNewer>false</overWriteIfNewer>
-                            <overWriteReleases>true</overWriteReleases>
-                            <overWriteSnapshots>true</overWriteSnapshots>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>org.thingsboard.client</groupId>
-                                    <artifactId>${thingsboard-client.artifactId}</artifactId>
-                                    <version>${thingsboard-client.version}</version>
-                                    <includes>api-docs/**</includes>
-                                    <outputDirectory>${project.build.directory}</outputDirectory>
-                                </artifactItem>
-                            </artifactItems>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>unpack-client-source</id>
-                        <phase>generate-resources</phase>
-                        <goals>
-                            <goal>unpack</goal>
-                        </goals>
-                        <configuration>
-                            <overWriteIfNewer>false</overWriteIfNewer>
-                            <overWriteReleases>true</overWriteReleases>
-                            <overWriteSnapshots>true</overWriteSnapshots>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>org.thingsboard.client</groupId>
-                                    <artifactId>${thingsboard-client.artifactId}</artifactId>
-                                    <version>${thingsboard-client.version}</version>
-                                    <classifier>sources</classifier>
-                                    <includes>org/thingsboard/client/ThingsboardClient.java</includes>
-                                    <outputDirectory>${project.build.directory}/client-src-tmp</outputDirectory>
-                                </artifactItem>
-                            </artifactItems>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-antrun-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>flatten-client-source</id>
-                        <phase>generate-resources</phase>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                        <configuration>
-                            <target>
-                                <move file="${project.build.directory}/client-src-tmp/org/thingsboard/client/ThingsboardClient.java"
-                                      tofile="${project.build.directory}/api-docs/ThingsboardClient.java"
-                                      failonerror="false"/>
-                                <delete dir="${project.build.directory}/client-src-tmp" failonerror="false"/>
-                            </target>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </path>
-                    </annotationProcessorPaths>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>com.mycila</groupId>
-                <artifactId>license-maven-plugin</artifactId>
-                <version>3.0</version>
-                <configuration>
-                    <header>${main.dir}/.license-header</header>
-                    <properties>
-                        <owner>ThingsBoard, Inc.</owner>
-                    </properties>
-                    <excludes>
-                        <exclude>**/LICENSE</exclude>
-                        <exclude>**/README</exclude>
-                        <exclude>**/*.properties</exclude>
-                        <exclude>**/*.log</exclude>
-                        <exclude>.github/**</exclude>
-                        <exclude>.run/**</exclude>
-                        <exclude>.mvn/**</exclude>
-                        <exclude>mvnw</exclude>
-                        <exclude>mvnw.cmd</exclude>
-                        <exclude>.env.example</exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-        </plugins>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>com.mycila</groupId>
+                    <artifactId>license-maven-plugin</artifactId>
+                    <version>3.0</version>
+                    <configuration>
+                        <header>${main.dir}/.license-header</header>
+                        <properties>
+                            <owner>ThingsBoard, Inc.</owner>
+                        </properties>
+                        <excludes>
+                            <exclude>**/LICENSE</exclude>
+                            <exclude>**/README</exclude>
+                            <exclude>**/*.properties</exclude>
+                            <exclude>**/*.log</exclude>
+                            <exclude>.github/**</exclude>
+                            <exclude>.run/**</exclude>
+                            <exclude>.mvn/**</exclude>
+                            <exclude>mvnw</exclude>
+                            <exclude>mvnw.cmd</exclude>
+                            <exclude>.env.example</exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
 
     <repositories>

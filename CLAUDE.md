@@ -10,7 +10,7 @@ The user of this project is most likely **not a developer** — they understand 
 
 - **Business logic questions → always ask the user** (using `AskUserQuestion`). Never guess what the user wants. If you're unsure about the intended behavior, what data to use, which entities are involved, how something should be triggered, or what the output should look like — ask. Examples: "Should deleted devices decrement the count or reset it?", "Which asset should store this data?", "Should this run on every telemetry message or only when a threshold is exceeded?"
 
-- **Technical/implementation questions → figure it out yourself.** Do not ask the user about Java imports, Spring annotations, method signatures, build errors, or ThingsBoard client API usage. Use the API docs in `target/api-docs/` (controller APIs *and* model class docs), the examples in `target/api-docs/tb-examples.md`, and `./mvnw compile` to resolve technical issues on your own. **Never search `~/.m2` or decompile JARs** — all API and model documentation is in `target/api-docs/`.
+- **Technical/implementation questions → figure it out yourself.** Do not ask the user about Java imports, Spring annotations, method signatures, build errors, or ThingsBoard client API usage. Use the API docs in `extension/target/api-docs/` (controller APIs *and* model class docs), the examples in `extension/target/api-docs/tb-examples.md`, and `./mvnw compile` to resolve technical issues on your own. **Never search `~/.m2` or decompile JARs** — all API and model documentation is in `extension/target/api-docs/`.
 
 ## How to Create a New Extension
 
@@ -40,25 +40,25 @@ This single property controls both the dependency and the API docs extraction.
 
 ### 2. Set up API docs (BLOCKING — must happen before writing any code)
 
-After setting the edition in `pom.xml`, run `./mvnw generate-resources -q` — this unpacks API docs from the client JAR into `target/api-docs/`. It always overwrites, so it's safe to re-run after switching editions.
+After setting the edition in `pom.xml`, run `./mvnw generate-resources -pl extension -q` — this unpacks API docs from the client JAR into `extension/target/api-docs/`. It always overwrites, so it's safe to re-run after switching editions.
 
-**Do NOT read any files from `target/api-docs/` until AFTER running `./mvnw generate-resources`.** Always regenerate first, then read.
+**Do NOT read any files from `extension/target/api-docs/` until AFTER running `./mvnw generate-resources -pl extension`.** Always regenerate first, then read.
 
-**Do NOT skip this step.** Even if `target/api-docs/` already exists, it may contain docs for the wrong edition.
+**Do NOT skip this step.** Even if `extension/target/api-docs/` already exists, it may contain docs for the wrong edition.
 
 ### 3. Understand the business need
 
 Ask these questions (the user can skip by providing a detailed prompt upfront):
 
 - **What event triggers it?** (device created, telemetry posted, alarm created, etc.) — then **read `docs/tb-message-types.md`** to find the exact message type (e.g., `ENTITY_CREATED`) and understand the JSON payload structure. You will need both when generating code and when writing rule chain setup instructions.
-- **Does it need to call ThingsBoard APIs?** (save attributes, look up devices, create alarms, etc.) — see the API docs in `target/api-docs/` (run `./mvnw generate-resources` first if the folder doesn't exist). Each `*Api.md` file lists all available methods for that controller with parameters and return types.
+- **Does it need to call ThingsBoard APIs?** (save attributes, look up devices, create alarms, etc.) — see the API docs in `extension/target/api-docs/` (run `./mvnw generate-resources -pl extension` first if the folder doesn't exist). Each `*Api.md` file lists all available methods for that controller with parameters and return types.
 - **Does it need external services?** (Slack, email, database, HTTP API) — if so, add the dependency to `pom.xml`.
 - **Will it be called from a dashboard widget?** If yes — is the ThingsBoard instance on-premise (same origin) or cloud (cross-origin)? Cross-origin (cloud) requires `CORS_ALLOWED_ORIGINS` to be set on the extension. See `deploy/cloud/.env.example`.
 - **What should it return?** The response JSON becomes the outgoing message in the rule chain (2xx = Success route, non-2xx = Failure route).
 
 ### 4. Generate the code
 
-Create a new `@RestController` class in `src/main/java/org/thingsboard/extension/`. Every Java file must start with this exact license header:
+Create a new `@RestController` class in `extension/src/main/java/org/thingsboard/extension/`. Every Java file must start with this exact license header:
 
 ```java
 /**
@@ -185,29 +185,30 @@ For request-based flows, missing or invalid `X-Authorization` header returns 401
 │   └── cloud-button.js                   # Widget JS snippet (fetch, full URL, manual JWT)
 ├── docs/
 │   └── tb-message-types.md               # ThingsBoard message types and JSON payload structures
-└── target/api-docs/                      # Generated — ThingsboardClient API docs (run mvnw generate-resources)
+├── examples/                             # Maven module — example controllers (can delete the whole module)
+│   └── src/main/java/org/thingsboard/extension/examples/
+│       ├── BillingController.java            # API key auth pattern (rule chain callback)
+│       ├── DeviceHealthCheckTask.java        # Scheduled background job
+│       ├── TelemetryUnitConversionController.java  # No-auth pattern (no TB client needed)
+│       └── TenantReportController.java       # JWT auth pattern (widget callback)
+└── extension/                            # Maven module — Spring Boot app
+    ├── src/main/java/org/thingsboard/extension/
+    │   ├── ThingsboardExtensionApplication.java  # Spring Boot entry point + @EnableScheduling
+    │   └── config/
+    │       ├── ThingsboardAuthConfig.java        # Optional TB client bean for background jobs
+    │       ├── GlobalExceptionHandler.java       # Structured JSON error responses
+    │       ├── HealthController.java             # GET /api/health
+    │       ├── OpenApiConfig.java                # Swagger UI with dual auth schemes
+    │       ├── RequestLoggingFilter.java         # Request/response logging
+    │       ├── SchedulingConfig.java             # Scheduler error handling
+    │       ├── ThingsboardClientProvider.java    # Client cache + argument resolver
+    │       └── WebConfig.java                    # Registers the argument resolver + CORS config
+    └── target/api-docs/                  # Generated — ThingsboardClient API docs (run mvnw generate-resources -pl extension)
 ```
 
-**Java source (`src/main/java/org/thingsboard/extension/`):**
-```
-├── ThingsboardExtensionApplication.java  # Spring Boot entry point + @EnableScheduling
-├── config/
-│   ├── ThingsboardAuthConfig.java        # Optional TB client bean for background jobs
-│   ├── GlobalExceptionHandler.java       # Structured JSON error responses
-│   ├── HealthController.java             # GET /api/health
-│   ├── OpenApiConfig.java                # Swagger UI with dual auth schemes
-│   ├── RequestLoggingFilter.java         # Request/response logging
-│   ├── SchedulingConfig.java             # Scheduler error handling
-│   ├── ThingsboardClientProvider.java    # Client cache + argument resolver
-│   └── WebConfig.java                    # Registers the argument resolver + CORS config
-└── examples/                             # Example controllers (can be deleted)
-    ├── BillingController.java            # API key auth pattern (rule chain callback)
-    ├── DeviceHealthCheckTask.java        # Scheduled background job
-    ├── TelemetryUnitConversionController.java  # No-auth pattern (no TB client needed)
-    └── TenantReportController.java       # JWT auth pattern (widget callback)
-```
+To remove the examples, delete the `examples/` directory and remove the `<module>examples</module>` line and the `thingsboard-extension-examples` dependency from the POM files.
 
-New extensions go directly in `src/main/java/org/thingsboard/extension/` or in a sub-package.
+New extensions go directly in `extension/src/main/java/org/thingsboard/extension/` or in a sub-package.
 
 ### Request/response contract
 - **Input**: `msg.getData()` from the rule chain — whatever JSON the triggering event carries
@@ -235,19 +236,19 @@ This bean is created only when authentication credentials are configured in `app
 
 ## API Reference
 
-The full ThingsboardClient API docs are packaged inside the client JAR and extracted to `target/api-docs/` during build. Run `./mvnw generate-resources` if the folder doesn't exist.
+The full ThingsboardClient API docs are packaged inside the client JAR and extracted to `extension/target/api-docs/` during build. Run `./mvnw generate-resources -pl extension` if the folder doesn't exist.
 
-**⚠️ NEVER search `~/.m2/repository`, decompile JARs, or use `find`/`jar`/`javap` commands to inspect client library internals. Everything you need is in `target/api-docs/`.**
+**⚠️ NEVER search `~/.m2/repository`, decompile JARs, or use `find`/`jar`/`javap` commands to inspect client library internals. Everything you need is in `extension/target/api-docs/`.**
 
-`target/api-docs/` contains three kinds of documentation:
+`extension/target/api-docs/` contains three kinds of documentation:
 
 1. **Controller API docs** (`*ControllerApi.md`) — e.g., `DeviceControllerApi.md`, `TelemetryControllerApi.md`. Each lists all available methods with parameters and return types.
-2. **Model class docs** (e.g., `EntitySubtype.md`, `Device.md`, `Alarm.md`) — each lists the model's properties, types, and getter/setter conventions. **When a method returns a type you're unfamiliar with, read that type's `.md` file in `target/api-docs/`** to learn its properties and available getters.
+2. **Model class docs** (e.g., `EntitySubtype.md`, `Device.md`, `Alarm.md`) — each lists the model's properties, types, and getter/setter conventions. **When a method returns a type you're unfamiliar with, read that type's `.md` file in `extension/target/api-docs/`** to learn its properties and available getters.
 3. **ThingsboardClient source** (`ThingsboardClient.java`) — the actual client class source code. Read this when you need to understand method signatures, overloads, or client behavior that isn't covered by the controller API docs. `ThingsboardClient` extends `ThingsboardApi` (the generated 98K-line class with all API methods) — the controller API docs already cover those methods, so you do NOT need the `ThingsboardApi` source.
 
 **Important:** When you need to call ThingsBoard APIs, always **read the full method table** at the top of the relevant `*ControllerApi.md` file (it's typically under 20 lines). Do not grep for guessed method names — the actual method names may differ from what you'd expect (e.g., `getTenantAssetByName` not `getAssetsByName`).
 
-For code examples showing how to call these methods, see `target/api-docs/tb-examples.md`.
+For code examples showing how to call these methods, see `extension/target/api-docs/tb-examples.md`.
 
 ### Imports
 
@@ -313,7 +314,7 @@ Health check: `curl http://localhost:8090/api/health`
 
 ## Restarting After Code Changes
 
-- **With devtools (default `./mvnw spring-boot:run`):** Run `./mvnw compile -q` in a separate terminal — the service auto-restarts in ~2 seconds.
+- **With devtools (default `./mvnw -pl extension -am spring-boot:run`):** Run `./mvnw compile -q` in a separate terminal — the service auto-restarts in ~2 seconds.
 - **With Docker:** Run `./run-docker.sh`.
 
 ## Post-Generation Checklist

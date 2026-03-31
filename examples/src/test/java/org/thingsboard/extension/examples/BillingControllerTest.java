@@ -20,8 +20,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.thingsboard.client.ThingsboardClient;
-import org.thingsboard.extension.TestUtils;
-import org.thingsboard.extension.config.GlobalExceptionHandler;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -37,8 +35,7 @@ class BillingControllerTest {
 
     private final MockMvc mockMvc = MockMvcBuilders
             .standaloneSetup(new BillingController())
-            .setCustomArgumentResolvers(TestUtils.tbArgumentResolver(tb))
-            .setControllerAdvice(new GlobalExceptionHandler())
+            .setCustomArgumentResolvers(ExampleTestUtils.tbArgumentResolver(tb))
             .build();
 
     @Test

@@ -20,4 +20,4 @@ set -e
 cd "$(dirname "$0")"
 
 echo "Starting ThingsBoard Extension..."
-./mvnw spring-boot:run
+./mvnw -pl extension -am spring-boot:run

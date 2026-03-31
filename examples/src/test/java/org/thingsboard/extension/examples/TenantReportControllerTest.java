@@ -21,7 +21,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.thingsboard.client.ThingsboardClient;
 import org.thingsboard.client.model.EntityCountQuery;
-import org.thingsboard.extension.TestUtils;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -36,7 +35,7 @@ class TenantReportControllerTest {
 
     private final MockMvc mockMvc = MockMvcBuilders
             .standaloneSetup(new TenantReportController())
-            .setCustomArgumentResolvers(TestUtils.tbArgumentResolver(tb))
+            .setCustomArgumentResolvers(ExampleTestUtils.tbArgumentResolver(tb))
             .build();
 
     @Test
