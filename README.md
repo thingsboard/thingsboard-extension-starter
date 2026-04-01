@@ -333,13 +333,13 @@ The user lookup (`getUser()`) is lazy — it is only called when `@PreAuthorize`
 
 The project includes four example extensions that demonstrate different patterns. These are intentionally simple — they exist to show the integration patterns, not to solve real problems.
 
-1. **Telemetry Unit Conversion** — no-auth pattern. Converts telemetry values (F to C, psi to bar) without calling the ThingsBoard API. See `examples/src/main/java/.../TelemetryUnitConversionController.java`.
+1. **Telemetry Unit Conversion** — no-auth pattern. Converts telemetry values (F to C, psi to bar) without calling the ThingsBoard API. See [`TelemetryUnitConversionController.java`](examples/src/main/java/org/thingsboard/extension/examples/TelemetryUnitConversionController.java).
 
-2. **Billing on Device Creation** — API key auth pattern. Saves a `billingActive` server-side attribute when a device is created. See `examples/src/main/java/.../BillingController.java`.
+2. **Billing on Device Creation** — API key auth pattern. Saves a `billingActive` server-side attribute when a device is created. See [`BillingController.java`](examples/src/main/java/org/thingsboard/extension/examples/BillingController.java).
 
-3. **Tenant Report (Widget Button)** — JWT auth pattern. Counts all devices, assets, and users in the tenant. See `examples/src/main/java/.../TenantReportController.java`.
+3. **Tenant Report (Widget Button)** — JWT auth pattern. Counts all devices, assets, and users in the tenant. See [`TenantReportController.java`](examples/src/main/java/org/thingsboard/extension/examples/TenantReportController.java).
 
-4. **Scheduled Health Check** — configured credentials pattern. Runs every 60 seconds and writes a `lastHealthCheckTs` attribute to all devices. See `examples/src/main/java/.../DeviceHealthCheckTask.java`.
+4. **Scheduled Health Check** — configured credentials pattern. Runs every 60 seconds and writes a `lastHealthCheckTs` attribute to all devices. See [`DeviceHealthCheckTask.java`](examples/src/main/java/org/thingsboard/extension/examples/DeviceHealthCheckTask.java).
 
 Delete the `examples/` module when you are ready to write your own code. See [Removing Examples](#removing-examples).
 
@@ -552,7 +552,7 @@ When you are ready to write your own extensions, remove the example code:
 1. Delete the `examples/` directory
 2. Remove `<module>examples</module>` from the root `pom.xml`
 3. Remove the `thingsboard-extension-examples` dependency from `extension/pom.xml`
-4. Remove example-specific test methods from `extension/src/test/.../ApplicationIntegrationTest.java`:
+4. Remove example-specific test methods from [`ApplicationIntegrationTest.java`](extension/src/test/java/org/thingsboard/extension/ApplicationIntegrationTest.java):
    - `telemetryConversionWorksWithoutAuth`
    - `billingEndpointReturns401WithoutAuth`
    - `reportEndpointReturns401WithoutAuth`
