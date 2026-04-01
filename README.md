@@ -27,7 +27,7 @@ ThingsBoard Rule Engine               Extension Service (port 8090)
 
 ### Widget Callback
 
-A dashboard widget button calls the extension directly. The user's JWT authenticates the request, so API calls respect the user's tenant and permissions.
+A dashboard widget button calls the extension. The user's JWT authenticates the request, so API calls respect the user's tenant and permissions.
 
 ```
 ThingsBoard Dashboard                 Extension Service (port 8090)
@@ -39,6 +39,9 @@ ThingsBoard Dashboard                 Extension Service (port 8090)
 |  session              |  JSON resp  |  from Bearer JWT         |
 |                      <+-------------|                          |
 +-----------------------+             +--------------------------+
+
+On-premise: HAProxy routes /api/extension/* to the extension service.
+Cloud: widget calls the extension directly at its public URL.
 ```
 
 ### Scheduled Background Job
@@ -50,7 +53,7 @@ Extension Service (port 8090)
 +------------------------------------------------------+
 |  @Scheduled task runs on a timer                     |
 |  ThingsboardClient from application.yml credentials  |
-|  (TB_AUTH_API_KEY or username+password)               |
+|  (TB_AUTH_API_KEY or username+password)              |
 +------------------------------------------------------+
 ```
 
@@ -184,7 +187,7 @@ backend thingsboard_extension
 
 **2. Add the widget JS snippet**
 
-Use `self.ctx.http.post()` with a relative URL. ThingsBoard automatically adds the user's JWT as `X-Authorization: Bearer <jwt>` — no manual auth needed.
+Use `widgetContext.http.post(url, body).subscribe(...)` with a relative URL. ThingsBoard automatically adds the user's JWT as `X-Authorization: Bearer <jwt>` — no manual auth needed. Note: `widgetContext.http` is Angular's `HttpClient`, so it returns an Observable (use `.subscribe()`, not `.then()`).
 
 Setup: Widget -> Settings -> Actions -> "On click" -> Custom action (JS). Paste the snippet from `examples/widgets/on-premise-button.js` and change the URL to your extension's endpoint.
 

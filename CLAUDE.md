@@ -144,7 +144,7 @@ Run `./mvnw compile -q` after generating the code. If it fails, read the error o
 
 **For widget callback extensions (called from dashboard widgets):** Tell the user how to add the JS snippet to their widget. The setup differs by deployment mode:
 
-- **On-premise:** Point the user to `examples/widgets/on-premise-button.js`. The snippet uses `self.ctx.http.post()` with a relative URL — ThingsBoard automatically adds the user's JWT. Tell the user to replace the URL path with their extension's endpoint. No CORS configuration needed.
+- **On-premise:** Point the user to `examples/widgets/on-premise-button.js`. The snippet uses `widgetContext.http.post(url, body).subscribe(...)` with a relative URL — ThingsBoard automatically adds the user's JWT. Tell the user to replace the URL path with their extension's endpoint. No CORS configuration needed.
 - **Cloud:** Point the user to `examples/widgets/cloud-button.js`. The snippet uses `fetch()` with a full URL and reads the JWT from `localStorage`. Tell the user to: (1) replace the URL with their extension's public address, and (2) set `CORS_ALLOWED_ORIGINS` on the extension to their ThingsBoard Cloud origin.
 
 Setup steps: Widget -> Settings -> Actions -> "On click" -> Custom action (JS) -> paste the snippet.
@@ -220,7 +220,7 @@ Import: `org.thingsboard.extension.config.TbSecurity`, `org.thingsboard.extensio
 │       ├── docker-compose.yml            # Extension container config (no extra_hosts)
 │       └── .env.example                  # Env template (CORS_ALLOWED_ORIGINS required)
 ├── examples/widgets/
-│   ├── on-premise-button.js              # Widget JS snippet (self.ctx.http, relative URL)
+│   ├── on-premise-button.js              # Widget JS snippet (widgetContext.http, relative URL)
 │   └── cloud-button.js                   # Widget JS snippet (fetch, full URL, manual JWT)
 ├── docs/
 │   └── tb-message-types.md               # ThingsBoard message types and JSON payload structures
@@ -241,7 +241,7 @@ Import: `org.thingsboard.extension.config.TbSecurity`, `org.thingsboard.extensio
     │       ├── SchedulingConfig.java             # Scheduler error handling
     │       ├── SecurityConfig.java               # Spring Security filter chain + CORS
     │       ├── TbAuthentication.java             # Spring Security Authentication (lazy authorities)
-    │       ├── TbSecurity.java                    # Static helper: TbSecurity.getCurrentUser()
+    │       ├── TbSecurity.java                   # Static helper: TbSecurity.getCurrentUser()
     │       ├── TbSecurityFilter.java             # Populates SecurityContext from X-Authorization
     │       ├── TbSecurityUser.java               # Lazily-loaded ThingsBoard user wrapper
     │       ├── ThingsboardAuthConfig.java        # Optional TB client bean for background jobs

@@ -25,22 +25,18 @@
  *                    Change the URL if your extension runs on a different path.
  */
 
-// Relative URL -- ThingsBoard resolves this against its own host.
-// HAProxy routes /api/extension/* to the extension service.
+// Relative URL -- HAProxy routes /api/extension/* to the extension service.
 var url = '/api/extension/report/generate';
 
 // Request body -- the controller accepts any JSON. Empty object is fine.
 var body = {};
 
-// self.ctx.http is ThingsBoard's built-in HTTP client.
+// widgetContext.http is Angular's HttpClient.
 // For relative /api URLs, it automatically adds the user's JWT
 // in the X-Authorization header -- no manual auth needed.
-self.ctx.http.post(url, body).then(
-    function(response) {
-        // response is the parsed JSON body from the extension
-        alert('Devices: ' + response.totalDevices + ', Assets: ' + response.totalAssets + ', Users: ' + response.totalUsers);
-    },
-    function(error) {
-        alert('Error: ' + (error.message || 'Request failed'));
-    }
-);
+widgetContext.http.post(url, body).subscribe(function(response) {
+    // response is the parsed JSON body from the extension
+    widgetContext.showSuccessToast('Devices: ' + response.totalDevices +
+        ', Assets: ' + response.totalAssets +
+        ', Users: ' + response.totalUsers);
+});
