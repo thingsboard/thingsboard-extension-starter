@@ -349,7 +349,7 @@ Delete the `examples/` module when you are ready to write your own code. See [Re
 
 Open this project in Claude Code and describe what you want:
 
-> "I'd like to create a form on the dashboard to add a new customer. When the user enters an email, automatically create a customer with that title, create a user with that email, add the customer to a 'Solution Customers' group, create a 'SolutionUsers' group for the new customer user, and assign the tenant-level 'SolutionDashboards' dashboard group to 'SolutionUsers'."
+> "I need reusable user profiles — like 'Manager', 'Technician', 'Viewer'. Each profile defines a default dashboard, sharing role, and custom roles. I want CRUD endpoints to manage profiles (stored as attributes on a tenant asset), an endpoint to assign a profile to a user (sets default dashboard, creates a user group, shares dashboards, assigns roles), and an endpoint to unassign it (reverses everything)."
 
 Claude will ask clarifying questions, generate the controller class (or scheduled task), add any needed dependencies to `pom.xml`, and provide setup and testing instructions.
 
