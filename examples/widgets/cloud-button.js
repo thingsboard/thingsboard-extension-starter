@@ -39,34 +39,30 @@ var jwt = localStorage.getItem('jwt_token');
 var url = 'https://your-extension-host:8090/api/extension/report/generate';
 
 // Use fetch() for cross-origin requests to the external extension.
-// The on-premise HTTP client (ctx.http) only works for same-origin requests.
+// The on-premise approach (widgetContext.http) only works for same-origin requests.
 fetch(url, {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json',
         // Explicit 'Bearer ' prefix required -- fetch() does not add it automatically.
-        // The on-premise HTTP client adds the prefix for you, but fetch() sends the raw value.
+        // widgetContext.http adds the prefix for you, but fetch() sends the raw value.
         'X-Authorization': 'Bearer ' + jwt
     },
     // Request body -- the controller accepts any JSON. Empty object is fine.
     body: JSON.stringify({})
 })
 .then(function(response) {
-    // Check for errors before parsing the body.
     if (!response.ok) {
-        alert('Error: ' + response.status);
-        return;
+        throw new Error('HTTP ' + response.status);
     }
-    // Parse the JSON response body.
     return response.json();
 })
 .then(function(data) {
-    // data is undefined if the 401 handler above returned early.
-    if (data) {
-        alert('Devices: ' + data.totalDevices + ', Assets: ' + data.totalAssets + ', Users: ' + data.totalUsers);
-    }
+    widgetContext.showSuccessToast('Devices: ' + data.totalDevices +
+        ', Assets: ' + data.totalAssets +
+        ', Users: ' + data.totalUsers);
 })
 .catch(function(error) {
-    // Network errors, CORS errors, or other failures.
-    alert('Error: ' + (error.message || 'Request failed'));
+    // fetch() bypasses Angular's HttpClient, so errors must be handled manually.
+    widgetContext.showErrorToast('Error: ' + (error.message || 'Request failed'));
 });

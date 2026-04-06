@@ -18,8 +18,8 @@ FROM thingsboard/openjdk25:trixie-slim
 
 WORKDIR /home/thingsboard
 
-COPY target/classes/docker/start-extension.sh /home/thingsboard/
-COPY target/thingsboard-extension-starter-*.jar /home/thingsboard/thingsboard-extension.jar
+COPY extension/target/classes/docker/start-extension.sh /home/thingsboard/
+COPY extension/target/thingsboard-extension-*.jar /home/thingsboard/thingsboard-extension.jar
 
 RUN chmod a+x /home/thingsboard/start-extension.sh
 
