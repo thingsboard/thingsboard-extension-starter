@@ -231,7 +231,7 @@ The `@Scheduled` method runs automatically on the configured interval. Use `@Con
 ### API Key (Rule Chain Callbacks)
 
 - **Header:** `X-Authorization: ApiKey <key>`
-- **How to get a key:** ThingsBoard UI -> API Keys -> create key as Tenant Admin
+- **How to get a key:** see [API Keys docs](https://thingsboard.io/docs/pe/user-guide/security/api-keys/) (introduced in ThingsBoard 4.3)
 - **Controller pattern:** declare `ThingsboardClient tb` as a method parameter
 
 ```java

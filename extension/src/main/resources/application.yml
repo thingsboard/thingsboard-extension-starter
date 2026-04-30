@@ -42,5 +42,10 @@ spring:
     virtual:
       enabled: true
 
+springdoc:
+  swagger-ui:
+    # Persist X-Authorization across page refreshes (stored in browser localStorage)
+    persist-authorization: true
+
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:}

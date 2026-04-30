@@ -20,4 +20,12 @@ set -e
 cd "$(dirname "$0")"
 
 echo "Starting ThingsBoard Extension..."
-./mvnw -pl extension -am spring-boot:run
+
+# Install sibling modules (e.g. examples) into the local repo so the
+# extension can resolve them when run via -f below. Harmless if there
+# are no siblings — installs only the extension jar in that case.
+./mvnw -pl extension -am install -DskipTests -q
+
+# Run extension directly via -f so spring-boot:run isn't applied to the
+# parent pom (which would fail with "Unable to find a suitable main class").
+./mvnw -f extension/pom.xml spring-boot:run
