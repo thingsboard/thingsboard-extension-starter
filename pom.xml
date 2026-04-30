@@ -42,7 +42,7 @@
     </modules>
 
     <properties>
-        <java.version>25</java.version>
+        <java.version>17</java.version>
         <main.dir>${basedir}</main.dir>
         <thingsboard-client.version>4.4.0-SNAPSHOT</thingsboard-client.version>
         <thingsboard-client.artifactId>thingsboard-paas-client</thingsboard-client.artifactId>

@@ -78,7 +78,7 @@ For rule chain callbacks and widget callbacks:
 
 One of:
 - **Docker** (recommended) — no Java or Maven needed
-- **Java 25+** — Maven is included via `./mvnw`
+- **Java 17+** — Maven is included via `./mvnw`
 
 And:
 - A running ThingsBoard instance (default: `http://localhost:8080`)
@@ -96,7 +96,7 @@ cd thingsboard-extension-starter
 # 3. Run with Docker (recommended)
 ./run-docker.sh
 
-# Or run with Java (requires Java 25)
+# Or run with Java (requires Java 17)
 ./run.sh
 
 # 4. Test it

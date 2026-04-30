@@ -208,7 +208,7 @@ Import: `org.thingsboard.extension.config.TbSecurity`, `org.thingsboard.extensio
 ```
 ├── build-docker-image.sh                 # Build Docker image (self-contained usage docs inside)
 ├── publish-docker-image.sh               # Push image to a container registry
-├── run.sh                                # Run with Maven (requires Java 25)
+├── run.sh                                # Run with Maven (requires Java 17)
 ├── run-docker.sh                         # Run with Docker Compose
 ├── Dockerfile                            # Docker image (requires JAR built by build-docker-image.sh)
 ├── deploy/
@@ -351,7 +351,7 @@ Cast safely via `Number` for numeric values: `((Number) attr.getValue()).longVal
 
 Guide users to the simplest option:
 
-1. **`./run.sh`** — runs with Maven directly (requires Java 25).
+1. **`./run.sh`** — runs with Maven directly (requires Java 17).
 2. **`./run-docker.sh`** — builds the JAR, then runs with Docker Compose.
 
 Health check: `curl http://localhost:8090/api/health`
