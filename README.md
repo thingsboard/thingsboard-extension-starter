@@ -78,7 +78,7 @@ For rule chain callbacks and widget callbacks:
 
 One of:
 - **Docker** (recommended) — no Java or Maven needed
-- **Java 25+** — Maven is included via `./mvnw`
+- **Java 17+** — Maven is included via `./mvnw`
 
 And:
 - A running ThingsBoard instance (default: `http://localhost:8080`)
@@ -96,7 +96,7 @@ cd thingsboard-extension-starter
 # 3. Run with Docker (recommended)
 ./run-docker.sh
 
-# Or run with Java (requires Java 25)
+# Or run with Java (requires Java 17)
 ./run.sh
 
 # 4. Test it
@@ -231,7 +231,7 @@ The `@Scheduled` method runs automatically on the configured interval. Use `@Con
 ### API Key (Rule Chain Callbacks)
 
 - **Header:** `X-Authorization: ApiKey <key>`
-- **How to get a key:** ThingsBoard UI -> API Keys -> create key as Tenant Admin
+- **How to get a key:** see [API Keys docs](https://thingsboard.io/docs/pe/user-guide/security/api-keys/) (introduced in ThingsBoard 4.3)
 - **Controller pattern:** declare `ThingsboardClient tb` as a method parameter
 
 ```java
@@ -333,13 +333,13 @@ The user lookup (`getUser()`) is lazy — it is only called when `@PreAuthorize`
 
 The project includes four example extensions that demonstrate different patterns. These are intentionally simple — they exist to show the integration patterns, not to solve real problems.
 
-1. **Telemetry Unit Conversion** — no-auth pattern. Converts telemetry values (F to C, psi to bar) without calling the ThingsBoard API. See `examples/src/main/java/.../TelemetryUnitConversionController.java`.
+1. **Telemetry Unit Conversion** — no-auth pattern. Converts telemetry values (F to C, psi to bar) without calling the ThingsBoard API. See [`TelemetryUnitConversionController.java`](examples/src/main/java/org/thingsboard/extension/examples/TelemetryUnitConversionController.java).
 
-2. **Billing on Device Creation** — API key auth pattern. Saves a `billingActive` server-side attribute when a device is created. See `examples/src/main/java/.../BillingController.java`.
+2. **Billing on Device Creation** — API key auth pattern. Saves a `billingActive` server-side attribute when a device is created. See [`BillingController.java`](examples/src/main/java/org/thingsboard/extension/examples/BillingController.java).
 
-3. **Tenant Report (Widget Button)** — JWT auth pattern. Counts all devices, assets, and users in the tenant. See `examples/src/main/java/.../TenantReportController.java`.
+3. **Tenant Report (Widget Button)** — JWT auth pattern. Counts all devices, assets, and users in the tenant. See [`TenantReportController.java`](examples/src/main/java/org/thingsboard/extension/examples/TenantReportController.java).
 
-4. **Scheduled Health Check** — configured credentials pattern. Runs every 60 seconds and writes a `lastHealthCheckTs` attribute to all devices. See `examples/src/main/java/.../DeviceHealthCheckTask.java`.
+4. **Scheduled Health Check** — configured credentials pattern. Runs every 60 seconds and writes a `lastHealthCheckTs` attribute to all devices. See [`DeviceHealthCheckTask.java`](examples/src/main/java/org/thingsboard/extension/examples/DeviceHealthCheckTask.java).
 
 Delete the `examples/` module when you are ready to write your own code. See [Removing Examples](#removing-examples).
 
@@ -349,7 +349,7 @@ Delete the `examples/` module when you are ready to write your own code. See [Re
 
 Open this project in Claude Code and describe what you want:
 
-> "I want to send a Slack notification when a critical alarm is created"
+> "I need reusable user profiles — like 'Manager', 'Technician', 'Viewer'. Each profile defines a default dashboard, sharing role, and custom roles. I want CRUD endpoints to manage profiles (stored as attributes on a tenant asset), an endpoint to assign a profile to a user (sets default dashboard, creates a user group, shares dashboards, assigns roles), and an endpoint to unassign it (reverses everything)."
 
 Claude will ask clarifying questions, generate the controller class (or scheduled task), add any needed dependencies to `pom.xml`, and provide setup and testing instructions.
 
@@ -552,7 +552,7 @@ When you are ready to write your own extensions, remove the example code:
 1. Delete the `examples/` directory
 2. Remove `<module>examples</module>` from the root `pom.xml`
 3. Remove the `thingsboard-extension-examples` dependency from `extension/pom.xml`
-4. Remove example-specific test methods from `extension/src/test/.../ApplicationIntegrationTest.java`:
+4. Remove example-specific test methods from [`ApplicationIntegrationTest.java`](extension/src/test/java/org/thingsboard/extension/ApplicationIntegrationTest.java):
    - `telemetryConversionWorksWithoutAuth`
    - `billingEndpointReturns401WithoutAuth`
    - `reportEndpointReturns401WithoutAuth`

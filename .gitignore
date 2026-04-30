@@ -2,4 +2,5 @@
 target/
 .claude
 .planning
+docs/superpowers
 .env

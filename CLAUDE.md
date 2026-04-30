@@ -208,7 +208,7 @@ Import: `org.thingsboard.extension.config.TbSecurity`, `org.thingsboard.extensio
 ```
 ├── build-docker-image.sh                 # Build Docker image (self-contained usage docs inside)
 ├── publish-docker-image.sh               # Push image to a container registry
-├── run.sh                                # Run with Maven (requires Java 25)
+├── run.sh                                # Run with Maven (requires Java 17)
 ├── run-docker.sh                         # Run with Docker Compose
 ├── Dockerfile                            # Docker image (requires JAR built by build-docker-image.sh)
 ├── deploy/
@@ -287,7 +287,7 @@ The full ThingsboardClient API docs are packaged inside the client JAR and extra
 `extension/target/api-docs/` contains three kinds of documentation:
 
 1. **Controller API docs** (`*ControllerApi.md`) — e.g., `DeviceControllerApi.md`, `TelemetryControllerApi.md`. Each lists all available methods with parameters and return types.
-2. **Model class docs** (e.g., `EntitySubtype.md`, `Device.md`, `Alarm.md`) — each lists the model's properties, types, and getter/setter conventions. **When a method returns a type you're unfamiliar with, read that type's `.md` file in `extension/target/api-docs/`** to learn its properties and available getters.
+2. **Model class docs** (e.g., `EntitySubtype.md`, `Device.md`, `Alarm.md`) — each lists the model's properties, types, and getter/setter conventions. Each file is **self-contained**: a `## Referenced Types` section at the bottom inlines every nested type, sub-type hierarchy, and enum the model refers to (plus a shared note covering all `EntityId` subtypes, which all share the `{entityType, id}` shape). Read the one file for the model you need — you should not need to chase references across files.
 3. **ThingsboardClient source** (`ThingsboardClient.java`) — the actual client class source code. Read this when you need to understand method signatures, overloads, or client behavior that isn't covered by the controller API docs. `ThingsboardClient` extends `ThingsboardApi` (the generated 98K-line class with all API methods) — the controller API docs already cover those methods, so you do NOT need the `ThingsboardApi` source.
 
 **Important:** When you need to call ThingsBoard APIs, always **read the full method table** at the top of the relevant `*ControllerApi.md` file (it's typically under 20 lines). Do not grep for guessed method names — the actual method names may differ from what you'd expect (e.g., `getTenantAssetByName` not `getAssetsByName`).
@@ -351,7 +351,7 @@ Cast safely via `Number` for numeric values: `((Number) attr.getValue()).longVal
 
 Guide users to the simplest option:
 
-1. **`./run.sh`** — runs with Maven directly (requires Java 25).
+1. **`./run.sh`** — runs with Maven directly (requires Java 17).
 2. **`./run-docker.sh`** — builds the JAR, then runs with Docker Compose.
 
 Health check: `curl http://localhost:8090/api/health`
